@@ -15,3 +15,5 @@ Imports: bookdown,
     here
 Suggests: devtools,
     git2r
+URL: https://github.com/KevinSee/SthdReddObsError
+BugReports: https://github.com/KevinSee/SthdReddObsError/issues
