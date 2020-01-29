@@ -12,6 +12,11 @@
 
 predict_neterr = function(data) {
 
+  if(sum(!attr(net_err_mod$terms, "term.labels") %in% names(data)) > 0) {
+    miss_covar = attr(net_err_mod$terms, "term.labels")[!attr(net_err_mod$terms, "term.labels") %in% names(data)]
+    stop(paste("Missing covariates in dataset:", paste(miss_covar, collapse = ', ')))
+  }
+
   pred_df = data %>%
     gather(metric, value, one_of(covar_center$metric)) %>%
     left_join(covar_center) %>%
@@ -23,7 +28,6 @@ predict_neterr = function(data) {
                       backtransform = T,
                       type = 'link',
                       se.fit = T) %>%
-                # as.data.frame() %>%
                 tbl_df() %>%
                 select(NetError = fit,
                        NetErrorSE = se.fit))
