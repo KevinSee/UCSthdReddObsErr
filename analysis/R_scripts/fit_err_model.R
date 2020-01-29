@@ -19,6 +19,7 @@ redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-201
          VisibleRedds,
          TotalFeatures,
          CorrectRedds,
+         OmittedRedds = OmittedRedds_Visible,
          ExpSpTotal = EXP_Total,
          MeanDischarge,
          MeanThalwegCV,
