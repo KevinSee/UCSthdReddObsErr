@@ -58,6 +58,10 @@ write_rds(redd_data,
           path = 'analysis/data/derived_data/original_data.rds')
 write_rds(mod_data,
           path = 'analysis/data/derived_data/model_data.rds')
+write_rds(net_err_mod,
+          path = 'analysis/data/derived_data/net_error_model.rds')
+write_rds(covar_center,
+          path = 'analysis/data/derived_data/covar_center.rds')
 
 usethis::use_data(covar_center,
                   net_err_mod,
