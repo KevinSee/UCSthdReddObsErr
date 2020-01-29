@@ -55,7 +55,7 @@ net_err_mod = glm(NetError_rate ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV
 #-----------------------------------------------------------------
 # save some things
 write_rds(redd_data,
-          path = 'analysis/data/derived_data/orginal_data.rds')
+          path = 'analysis/data/derived_data/original_data.rds')
 write_rds(mod_data,
           path = 'analysis/data/derived_data/model_data.rds')
 
