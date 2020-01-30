@@ -25,7 +25,7 @@ redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-201
          MeanThalwegCV,
          NaiveDensity_km = NaiveDensity) %>%
   mutate(ExpSpTotal_log = log(ExpSpTotal + 1),
-         NetError_rate = TotalFeatures / VisibleRedds)
+         NetError = TotalFeatures / VisibleRedds)
 
 # get mean and standard deviation of covariates
 covar_center = redd_data %>%
@@ -47,7 +47,7 @@ mod_data = redd_data %>%
   spread(metric, value)
 
 # fit model
-net_err_mod = glm(NetError_rate ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV + NaiveDensity_km,
+net_err_mod = glm(NetError ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV + NaiveDensity_km,
                   family = gaussian,
                   data = mod_data)
 
