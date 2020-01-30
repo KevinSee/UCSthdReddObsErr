@@ -27,7 +27,7 @@ redd_org = read_excel(paste0('analysis/data/raw_data/', yr, '_SteelheadData.xlsx
                        sheet = 'ReachArea')) %>%
   mutate_at(vars(River, Reach, Index, SurveyType),
             list(as.factor)) %>%
-  mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+  mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
             list(as.numeric)) %>%
   mutate_at(vars(SurveyDate),
             list(ymd)) %>%
