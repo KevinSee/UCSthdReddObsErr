@@ -1,5 +1,5 @@
 ---
-title: "Estimates of Wenatchee Steelhead Redds in 2018"
+title: "Estimates of Wenatchee Steelhead Redds in 2019"
 author:
   - Kevin See:
       email: Kevin.See@biomark.com
@@ -102,7 +102,7 @@ knitr::write_bib(c("tidyverse",
 
 
 ```{r load-data}
-redd_df = read_rds('../data/derived_data/wen_2018.rds')
+redd_df = read_rds('../data/derived_data/wen_2019.rds')
 org_data = read_rds('../data/derived_data/original_data.rds')
 net_err_mod = read_rds('../data/derived_data/net_error_model.rds')
 
