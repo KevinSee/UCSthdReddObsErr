@@ -11,6 +11,7 @@
 
 <meta name="author" content="Kevin See1,✉" />
 
+<meta name="date" content="2020-02-11" />
 
 <title>Estimates of Wenatchee Steelhead Redds in 2018</title>
 
@@ -1542,7 +1543,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Estimates of Wenatchee Steelhead Redds in 2018</h1>
 <h4 class="author">Kevin See<sup>1,✉</sup></h4>
-<h4 class="date">30 January, 2020</h4>
+<h4 class="date">February 11, 2020</h4>
 <div class="abstract">
 <p class="abstract">Abstract</p>
 This report contains estimates of total steelhead redds in the Wenatchee, after accounting for observer bias.
@@ -1557,11 +1558,11 @@ This report contains estimates of total steelhead redds in the Wenatchee, after 
 <div style="page-break-after: always;"></div>
 <div id="introduction" class="section level1">
 <h1><span class="header-section-number">1</span> Introduction</h1>
-<p>Redd counts are an established method to provide an index of adult spawners <span class="citation">(Gallagher et al. 2007)</span>. In the Wenatchee and Methow subbasins, index reaches are surveyed weekly during the steelhead spawning season (Mar 12, 2018 - Jun 11, 2018) and non-index reaches are surveyed once during the peak spawning period. The goal of this work is to:</p>
+<p>Redd counts are an established method to provide an index of adult spawners <span class="citation">(Gallagher et al. 2007)</span>. In the Wenatchee subbasin, index reaches are surveyed weekly during the steelhead spawning season (Mar 12, 2018 - Jun 11, 2018) and non-index reaches are surveyed once during the peak spawning period. The goal of this work is to:</p>
 <ol style="list-style-type: decimal">
 <li>Predict observer net error, using the model described in <span class="citation">Murdoch et al. (2018)</span>.</li>
-<li>Use estimates of observer net error rates and the mean survey interval to estimate the number of redds in each index reach, using a Gaussian area under the curve (GAUC) technique described in <span class="citation">Millar et al. (2012)</span>.</li>
-<li>Estimate the total number of redds in the non-index reaches by adjusting the observed counts with the estimated net error.</li>
+<li>Use estimates of observer net error rates and the mean survey interval to estimate the number of redds in each index reach, using a Gaussian area under the curve (GAUC) technique described in <span class="citation">Millar et al. (2012)</span> and <span class="citation">Murdoch et al. (2018)</span>.</li>
+<li>Estimate the total number of redds in the non-index reaches by adjusting the observed counts with the estimated net error where possible.</li>
 <li>Sum the total number of estimated redds for the entire Wenatchee subbasin.</li>
 </ol>
 </div>
@@ -1569,8 +1570,17 @@ This report contains estimates of total steelhead redds in the Wenatchee, after 
 <h1><span class="header-section-number">2</span> Methods</h1>
 <div id="net-error-model" class="section level2">
 <h2><span class="header-section-number">2.1</span> Net Error Model</h2>
-<p>The model for observer net error (observed redd counts / true number of redds) is fully described in <span class="citation">Murdoch et al. (2018)</span>. It uses covariates of the log of observer experience, mean discharge, the observed redd density and mean thalweg CV as a proxy for channel complexity. After normalizing these covariates, the model coefficients are shown in Table <a href="#tab:model-summ">2.1</a>.</p>
-<table>
+<p>The net error (<span class="math inline">\(NE\)</span>) for a reach <span class="math inline">\(i\)</span> is defined as</p>
+<p><span class="math display">\[
+NE_i = \frac{F_i}{V_i}
+\]</span></p>
+<p>where <span class="math inline">\(F_i\)</span> is the number of redds the surveyor reported and <span class="math inline">\(V_i\)</span> is the true number of redds in the reach. Therefore, if we have an estimate of net error (<span class="math inline">\(\hat{NE_i}\)</span>), we can calcultate the true number of redds based on that estimqte and the number of redds the surveyor reported:</p>
+<p><span class="math display" id="eq:net-error">\[\begin{equation}
+  V_i = \frac{F_i}{\hat{NE_i}}
+  \tag{2.1}
+\end{equation}\]</span></p>
+<p>The model for observer net error is fully described in <span class="citation">Murdoch et al. (2018)</span>. It uses covariates of the log of observer experience, mean discharge, the observed redd density and mean thalweg CV as a proxy for channel complexity. After normalizing these covariates, the model coefficients are shown in Table <a href="#tab:model-summ">2.1</a>. The response, net error, is scaled such that estimates of net error less than 1 suggest more errors of omission, while estimates greater than 1 suggest more errors of commission. An estimate of net error equal to one would indicate the observed count equals the true number of redds.</p>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
 <caption>
 <span id="tab:model-summ">Table 2.1: </span>Net error model covariates and coefficients.
 </caption>
@@ -1659,8 +1669,9 @@ Figure 2.1: Net error covariate values from the original study the predicted rea
 </div>
 <div id="estimating-redds" class="section level2">
 <h2><span class="header-section-number">2.3</span> Estimating Redds</h2>
-<p>Estimates of total redds were made for each index reach with a minimum of two redds and at least three weeks with at least one new redd found using the GAUC model described in <span class="citation">Millar et al. (2012)</span> and <span class="citation">Murdoch et al. (2018)</span>. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.</p>
-<p>For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey. This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from 0 to 0, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.</p>
+<p>Use of the GAUC methodology was limited to index reaches with a minimum of two redds and at least three weeks with at least one new redd found. For those reaches, we used the method described in <span class="citation">Millar et al. (2012)</span> and <span class="citation">Murdoch et al. (2018)</span>. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.</p>
+<p>For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. <a href="#eq:net-error">(2.1)</a>). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from 0 to 0, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.</p>
+<p>When summing reach-scale estimates to obtain estimates at the stream scale, an attempt was made to incorporate the fact that the reaches within a stream are not independent. Estimates of correlation between the reaches within a stream were made based on weekly observed redds. This method may not be perfect, since spawners could use certain reaches preferentially at different times in the season, but it may be the best we can do. Because correlations are often quite high between reaches, this is a better alternative than to naively assume the standard errors between reaches are independent of one another. These correlation estimates were combined withestimates of standard error at the reach scale to calculate a covariance matrix for the reaches within each stream, which was used when summing estimates of total redds to estimate the standard error at the stream scale. Failure to incorporate the correlations between reaches would result in an underestimate of standard error at the stream scales. Different streams (and therefore reaches in different streams) were assumed to be independent.</p>
 <div style="page-break-after: always;"></div>
 </div>
 </div>
@@ -1668,8 +1679,8 @@ Figure 2.1: Net error covariate values from the original study the predicted rea
 <h1><span class="header-section-number">3</span> Results</h1>
 <div id="redd-estimates" class="section level2">
 <h2><span class="header-section-number">3.1</span> Redd estimates</h2>
-<p>The estimated net error, observed redds and estimates of redds are shown in Table <a href="#tab:redd-est-rch">3.1</a>. Plots of the new redds and the GAUC fit to those data are shown in Figure <a href="#fig:gauc-plots">3.1</a>.</p>
-<table class="table" style="margin-left: auto; margin-right: auto;">
+<p>The estimated net error, observed redds and estimates of redds at the reach scale are shown in Table <a href="#tab:redd-est-rch">3.1</a>. Plots of the new redds and the GAUC fit to those data are shown in Figure <a href="#fig:gauc-plots">3.1</a>. The results are summarized at the stream and population scale in Table <a href="#tab:redd-est-strm">3.2</a>.</p>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
 <caption>
 <span id="tab:redd-est-rch">Table 3.1: </span>Estimates of mean net error and redds for each reach.
 </caption>
@@ -1695,6 +1706,9 @@ Observed Redds
 </th>
 <th style="text-align:right;">
 Estimated Redds
+</th>
+<th style="text-align:right;">
+Std. Err. Redds
 </th>
 <th style="text-align:right;">
 Redds CV
@@ -1725,6 +1739,9 @@ Index
 0
 </td>
 <td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
 <ul>
 <li></td>
 </tr>
@@ -1740,6 +1757,9 @@ Index
 </td>
 <td style="text-align:right;">
 1
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -1779,6 +1799,9 @@ Index
 <td style="text-align:right;">
 0
 </td>
+<td style="text-align:right;">
+0
+</td>
 </tr>
 <tr>
 <td style="text-align:left;">
@@ -1792,6 +1815,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 1
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -1818,6 +1844,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 1
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -1855,6 +1884,9 @@ Index
 0
 </td>
 <td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
 <ul>
 <li></td>
 </tr>
@@ -1870,6 +1902,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 1
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -1907,6 +1942,9 @@ Non-Index
 0
 </td>
 <td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
 <ul>
 <li></td>
 </tr>
@@ -1922,6 +1960,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 1
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -1959,6 +2000,9 @@ Non-Index
 0
 </td>
 <td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
 <ul>
 <li></td>
 </tr>
@@ -1983,6 +2027,9 @@ Index
 </td>
 <td style="text-align:right;">
 3
+</td>
+<td style="text-align:right;">
+0.6
 </td>
 <td style="text-align:right;">
 0.197
@@ -2011,6 +2058,9 @@ Index
 2
 </td>
 <td style="text-align:right;">
+0.6
+</td>
+<td style="text-align:right;">
 0.31
 </td>
 </tr>
@@ -2029,6 +2079,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 0.225
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2063,6 +2116,9 @@ Index
 10
 </td>
 <td style="text-align:right;">
+4.5
+</td>
+<td style="text-align:right;">
 0.454
 </td>
 </tr>
@@ -2081,6 +2137,9 @@ Non-Index
 </td>
 <td style="text-align:right;">
 0.301
+</td>
+<td style="text-align:right;">
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2115,41 +2174,14 @@ Index
 34
 </td>
 <td style="text-align:right;">
+15.3
+</td>
+<td style="text-align:right;">
 0.449
-</td>
-</tr>
-<tr>
-<td style="text-align:left;font-weight: bold;">
-Total
-</td>
-<td style="text-align:left;font-weight: bold;">
-<ul>
-<li></td>
-<td style="text-align:left;font-weight: bold;">
-<ul>
-<li></td>
-<td style="text-align:right;font-weight: bold;">
-<ul>
-<li></td>
-<td style="text-align:right;font-weight: bold;">
-<ul>
-<li></td>
-<td style="text-align:right;font-weight: bold;">
-28
-</td>
-<td style="text-align:right;font-weight: bold;">
-50
-</td>
-<td style="text-align:right;font-weight: bold;">
-0.319
 </td>
 </tr>
 </tbody>
 </table></li>
-</ul></li>
-</ul></li>
-</ul></li>
-</ul></li>
 </ul></li>
 </ul></li>
 </ul></li>
@@ -2167,6 +2199,180 @@ Total
 Figure 3.1: Plots of observed redd counts (black dots) through time for each qualifying index reach, and the fitted curve from the GAUC model (blue line) with associated uncertainty (gray).
 </p>
 </div>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
+<caption>
+<span id="tab:redd-est-strm">Table 3.2: </span>Estimate of redds for each stream
+</caption>
+<thead>
+<tr>
+<th style="text-align:left;">
+River
+</th>
+<th style="text-align:left;">
+Index
+</th>
+<th style="text-align:right;">
+# Reaches
+</th>
+<th style="text-align:right;">
+Observed Redds
+</th>
+<th style="text-align:right;">
+Estimated Redds
+</th>
+<th style="text-align:right;">
+Std. Err. Redds
+</th>
+<th style="text-align:right;">
+Redds CV
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+Chiwawa
+</td>
+<td style="text-align:left;">
+Y
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+<ul>
+<li></td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Nason
+</td>
+<td style="text-align:left;">
+Y
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+<ul>
+<li></td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Peshastin
+</td>
+<td style="text-align:left;">
+Y
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Wenatchee
+</td>
+<td style="text-align:left;">
+N
+</td>
+<td style="text-align:right;">
+8
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+<ul>
+<li></td>
+</tr>
+<tr>
+<td style="text-align:left;">
+Wenatchee
+</td>
+<td style="text-align:left;">
+Y
+</td>
+<td style="text-align:right;">
+5
+</td>
+<td style="text-align:right;">
+27
+</td>
+<td style="text-align:right;">
+49
+</td>
+<td style="text-align:right;">
+13.2
+</td>
+<td style="text-align:right;">
+0.27
+</td>
+</tr>
+<tr>
+<td style="text-align:left;font-weight: bold;">
+Total
+</td>
+<td style="text-align:left;font-weight: bold;">
+<ul>
+<li></td>
+<td style="text-align:right;font-weight: bold;">
+16
+</td>
+<td style="text-align:right;font-weight: bold;">
+28
+</td>
+<td style="text-align:right;font-weight: bold;">
+50
+</td>
+<td style="text-align:right;font-weight: bold;">
+13.2
+</td>
+<td style="text-align:right;font-weight: bold;">
+0.265
+</td>
+</tr>
+</tbody>
+</table></li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul>
 </div>
 </div>
 <div id="discussion" class="section level1">
@@ -2195,7 +2401,7 @@ Figure 3.1: Plots of observed redd counts (black dots) through time for each qua
 </div>
 <!-- \newpage -->
 <!-- ### Colophon -->
-<!-- This report was generated on 2020-01-30 10:53:36 using the following computational environment and dependencies:  -->
+<!-- This report was generated on 2020-02-11 14:35:45 using the following computational environment and dependencies:  -->
 <!-- ```{r colophon, cache = FALSE} -->
 <!-- # which R packages and versions? -->
 <!-- if ("devtools" %in% installed.packages()) devtools::session_info() -->

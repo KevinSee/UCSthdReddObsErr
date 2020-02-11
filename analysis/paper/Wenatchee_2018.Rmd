@@ -7,18 +7,14 @@ author:
       correspondence: true
 institute:
   - biomark: Biomark, Inc.
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
-    bookdown::html_document2:
+    bookdown::word_document2:
       fig_caption: yes
-      fig_height: 6
+      fig_height: 4
       fig_width: 6
       toc: yes
-      toc_depth: 3
-      toc_float:
-        collapsed: yes
-        smooth_scroll: yes
-      theme: simplex
+      reference_docx: "../templates/ReportTemplate.docx" # Insert path for the DOCX file
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
@@ -34,12 +30,16 @@ output:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
-    bookdown::word_document2:
+    bookdown::html_document2:
       fig_caption: yes
-      fig_height: 4
+      fig_height: 6
       fig_width: 6
       toc: yes
-      reference_docx: "../templates/ReportTemplate.docx" # Insert path for the DOCX file
+      toc_depth: 3
+      toc_float:
+        collapsed: yes
+        smooth_scroll: yes
+      theme: simplex
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
@@ -85,7 +85,9 @@ library(SthdReddObsError)
 theme_set(theme_bw())
 
 options(knitr.kable.NA = '-')
-# options(knitr.table.format = "pandoc")
+
+# when knitting to Word
+options(knitr.table.format = "pandoc")
 
 # setwd('analysis/paper')
 ```
@@ -172,23 +174,109 @@ redd_results = redd_df %>%
 
 ```
 
+```{r calc-strm-totals}
+strm_est_naive = redd_results %>%
+  select(River, Index, Reach, tot_feat, redd_est, redd_se) %>%
+  group_by(River, Index) %>%
+  nest() %>%
+  rename(redd_tot = data) %>%
+  mutate(n_rchs = map_int(redd_tot,
+                          .f = function(x) {
+                            n_distinct(x$Reach)
+                          })) %>%
+  # get correlations between reaches within a stream
+  left_join(redd_df %>%
+              group_by(River, Index) %>%
+              nest()) %>%
+  # filter(n_rchs > 1) %>%
+  mutate(cor_mat = map(data,
+                       .f = function(x) {
+                         cor_mat = try(x %>%
+                                         group_by(Reach) %>%
+                                         mutate(Survey = 1:n()) %>%
+                                         ungroup() %>%
+                                         select(Reach, Survey, NewRedds) %>%
+                                         spread(Reach, NewRedds) %>%
+                                         select(-Survey) %>%
+                                         cor(use = "pairwise",
+                                             # method = 'kendall')
+                                             method = 'spearman'),
+                                       silent = T)
+                         
+                         if(class(cor_mat) == 'try-error') {
+                           return(as.numeric(1))
+                         }else{
+                           
+                           cor_mat[is.na(cor_mat)] = 0
+                           diag(cor_mat) = 1
+                           return(cor_mat)
+                         }
+                       })) %>%
+  # select(-data) %>%
+  mutate(strm_obs = map_dbl(redd_tot,
+                            .f = function(x) {
+                              sum(x$tot_feat, na.rm = T)
+                            }),
+         strm_est = map_dbl(redd_tot,
+                            .f = function(x) {
+                              sum(x$redd_est, na.rm = T)
+                            }),
+         strm_se = map_dbl(redd_tot,
+                            .f = function(x) {
+                              sqrt(sum(x$redd_se, na.rm = T)^2)
+                            })) %>%
+  ungroup()
+
+strm_est = strm_est_naive %>%
+  filter(n_rchs > 1,
+         Index == "Y") %>%
+  # use correlations between reaches to get appropriate standard error
+  mutate(strm_se = map2_dbl(redd_tot, 
+                            cor_mat,
+                            .f = function(x, y) {
+                              
+                              deltamethod(as.formula(paste('~', paste0('x', 1:nrow(x), collapse='+'))),
+                                          mean = x$redd_est,
+                                          cov = diag(x$redd_se) %*% y %*% diag(x$redd_se))
+                            })) %>%
+  bind_rows(anti_join(strm_est_naive,
+                      .,
+                      by = c('River', 'Index', 'n_rchs'))) %>%
+  arrange(River, Index) %>%
+  select(-redd_tot, -data, -cor_mat) %>%
+  mutate(strm_cv = strm_se / strm_est)
+```
+
 
 \newpage
 
 # Introduction
 
-Redd counts are an established method to provide an index of adult spawners [@Gallagher2007]. In the Wenatchee and Methow subbasins, index reaches are surveyed weekly during the steelhead spawning season (`r paste(format(range(redd_df$SurveyDate), '%b %d, %Y'), collapse = ' - ')`) and non-index reaches are surveyed once during the peak spawning period. The goal of this work is to:
+Redd counts are an established method to provide an index of adult spawners [@Gallagher2007]. In the Wenatchee subbasin, index reaches are surveyed weekly during the steelhead spawning season (`r paste(format(range(redd_df$SurveyDate), '%b %d, %Y'), collapse = ' - ')`) and non-index reaches are surveyed once during the peak spawning period. The goal of this work is to:
 
 1. Predict observer net error, using the model described in @Murdoch2018.
-1. Use estimates of observer net error rates and the mean survey interval to estimate the number of redds in each index reach, using a Gaussian area under the curve (GAUC) technique described in @Millar2012.
-1. Estimate the total number of redds in the non-index reaches by adjusting the observed counts with the estimated net error.
+1. Use estimates of observer net error rates and the mean survey interval to estimate the number of redds in each index reach, using a Gaussian area under the curve (GAUC) technique described in @Millar2012 and @Murdoch2018.
+1. Estimate the total number of redds in the non-index reaches by adjusting the observed counts with the estimated net error where possible.
 1. Sum the total number of estimated redds for the entire Wenatchee subbasin.
 
 # Methods
 
 ## Net Error Model
 
-The model for observer net error (observed redd counts / true number of redds) is fully described in @Murdoch2018. It uses covariates of the log of observer experience, mean discharge, the observed redd density and mean thalweg CV as a proxy for channel complexity. After normalizing these covariates, the model coefficients are shown in Table \@ref(tab:model-summ). 
+The net error ($NE$) for a reach $i$ is defined as
+
+$$
+NE_i = \frac{F_i}{V_i}
+$$
+
+where $F_i$ is the number of redds the surveyor reported and $V_i$ is the true number of redds in the reach. Therefore, if we have an estimate of net error ($\hat{NE_i}$), we can calcultate the true number of redds based on that estimqte and the number of redds the surveyor reported:
+
+\begin{equation}
+  V_i = \frac{F_i}{\hat{NE_i}}
+  (\#eq:net-error)
+\end{equation}
+
+The model for observer net error is fully described in @Murdoch2018. It uses covariates of the log of observer experience, mean discharge, the observed redd density and mean thalweg CV as a proxy for channel complexity. After normalizing these covariates, the model coefficients are shown in Table \@ref(tab:model-summ). The response, net error, is scaled such that estimates of net error less than 1 suggest more errors of omission, while estimates greater than 1 suggest more errors of commission. An estimate of net error equal to one would indicate the observed count equals the true number of redds.
 
 ```{r model-summ}
 summary(net_err_mod)$coefficients %>%
@@ -202,7 +290,9 @@ summary(net_err_mod)$coefficients %>%
   select(1:3) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Net error model covariates and coefficients.")
+        caption = "Net error model covariates and coefficients.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
 ```
 
 ## Data
@@ -246,9 +336,11 @@ Those covariates in the observer error model were collected during each survey i
 
 ## Estimating Redds
 
-Estimates of total redds were made for each index reach with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found using the GAUC model described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.
+Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.
 
-For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey. This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from `r paste(range(redd_df$NewRedds[redd_df$Index == 'N']), collapse = ' to ')`, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.
+For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. \@ref(eq:net-error)). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from `r paste(range(redd_df$NewRedds[redd_df$Index == 'N']), collapse = ' to ')`, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.
+
+When summing reach-scale estimates to obtain estimates at the stream scale, an attempt was made to incorporate the fact that the reaches within a stream are not independent. Estimates of correlation between the reaches within a stream were made based on weekly observed redds. This method may not be perfect, since spawners could use certain reaches preferentially at different times in the season, but it may be the best we can do. Because correlations are often quite high between reaches, this is a better alternative than to naively assume the standard errors between reaches are independent of one another. These correlation estimates were combined withestimates of standard error at the reach scale to calculate a covariance matrix for the reaches within each stream, which was used when summing estimates of total redds to estimate the standard error at the stream scale. Failure to incorporate the correlations between reaches would result in an underestimate of standard error at the stream scales. Different streams (and therefore reaches in different streams) were assumed to be independent.
 
 \newpage
 
@@ -256,7 +348,7 @@ For non-index reaches, which were surveyed only once during peak spawning, the e
 
 ## Redd estimates
 
-The estimated net error, observed redds and estimates of redds are shown in Table \@ref(tab:redd-est-rch). Plots of the new redds and the GAUC fit to those data are shown in Figure \@ref(fig:gauc-plots).
+The estimated net error, observed redds and estimates of redds at the reach scale are shown in Table \@ref(tab:redd-est-rch). Plots of the new redds and the GAUC fit to those data are shown in Figure \@ref(fig:gauc-plots). The results are summarized at the stream and population scale in Table \@ref(tab:redd-est-strm). 
 
 ```{r redd-est-rch}
 redd_results %>%
@@ -265,29 +357,23 @@ redd_results %>%
                        "N" = "Non-Index")) %>%
   mutate(err_cv = err_se / err_est,
          redd_cv = redd_se / redd_est) %>%
-  bind_rows(redd_results %>%
-              summarise(River = "Total",
-                        tot_feat = sum(tot_feat, na.rm = T),
-                        redd_est = sum(redd_est, na.rm = T),
-                        redd_se = sqrt(sum(redd_se^2, na.rm = T)),
-                        redd_cv = redd_se / redd_est)) %>%
   select(River, Reach, Type, 
          # GAUC,
          `Net Error` = err_est,
          `Net Error CV` = err_cv,
          `Observed Redds ` = tot_feat,
          `Estimated Redds` = redd_est,
+         `Std. Err. Redds` = redd_se,
          `Redds CV` = redd_cv) %>%
-  kable(digits = c(rep(NA, 3), rep(3, 2), 1, 1, 3),
+  kable(digits = c(rep(NA, 3), rep(3, 2), 1, 1, 1, 3),
         format.args = list(drop0trailing = T),
         booktabs = T,
         caption = "Estimates of mean net error and redds for each reach.") %>%
-  kable_styling(latex_options = 'striped') %>%
-  row_spec(row = nrow(redd_results),
-           hline_after = T) %>%
-  row_spec(row = nrow(redd_results) + 1, 
-           bold = T)
-  
+  kable_styling(bootstrap_options = c("striped", 
+                                      "hover"),
+                latex_options = c("striped", 
+                                  "scale_down",
+                                  "repeat_header"))
 ```
 
 ```{r gauc-plots, fig.cap = "Plots of observed redd counts (black dots) through time for each qualifying index reach, and the fitted curve from the GAUC model (blue line) with associated uncertainty (gray)."}
@@ -316,6 +402,35 @@ redd_results %>%
   scale_x_continuous(breaks = scales::pretty_breaks()) +
   theme(strip.text = element_text(size=12))
 
+```
+
+```{r redd-est-strm}
+strm_est %>%
+  bind_rows(strm_est %>%
+              summarise(River = "Total",
+                        n_rchs = sum(n_rchs, na.rm = T),
+                        strm_obs = sum(strm_obs, na.rm = T),
+                        strm_est = sum(strm_est, na.rm = T),
+                        strm_se = sqrt(sum(strm_se^2, na.rm = T)),
+                        strm_cv = strm_se / strm_est)) %>%
+  select(River, 
+         Index,
+         `# Reaches` = n_rchs,
+         `Observed Redds ` = strm_obs,
+         `Estimated Redds` = strm_est,
+         `Std. Err. Redds` = strm_se,
+         `Redds CV` = strm_cv) %>%
+  kable(digits = c(rep(1, 5), 1, 3),
+        booktabs = T,
+        format.args = list(drop0trailing = T),
+        caption = "Estimate of redds for each stream") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped") %>%
+  row_spec(row = nrow(strm_est),
+           hline_after = T) %>%
+  row_spec(row = nrow(strm_est) + 1, 
+           bold = T)
+  
 ```
 
 # Discussion
