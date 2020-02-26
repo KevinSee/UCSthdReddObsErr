@@ -11,7 +11,7 @@
 
 <meta name="author" content="Kevin See1,✉" />
 
-<meta name="date" content="2020-02-20" />
+<meta name="date" content="2020-02-26" />
 
 <title>Estimates of Wenatchee Steelhead Redds in 2018</title>
 
@@ -1543,7 +1543,7 @@ div.tocify {
 
 <h1 class="title toc-ignore">Estimates of Wenatchee Steelhead Redds in 2018</h1>
 <h4 class="author">Kevin See<sup>1,✉</sup></h4>
-<h4 class="date">February 20, 2020</h4>
+<h4 class="date">February 26, 2020</h4>
 <div class="abstract">
 <p class="abstract">Abstract</p>
 This report contains estimates of total steelhead redds in the Wenatchee, after accounting for observer bias. It also includes estimates of spawners, as well as prespawn mortality.
@@ -1669,13 +1669,13 @@ Figure 2.1: Net error covariate values from the original study the predicted rea
 </div>
 <div id="estimating-redds" class="section level2">
 <h2><span class="header-section-number">2.3</span> Estimating Redds</h2>
-<p>Use of the GAUC methodology was limited to index reaches with a minimum of two redds and at least three weeks with at least one new redd found. For those reaches, we used the method described in <span class="citation">Millar et al. (2012)</span> and <span class="citation">Murdoch et al. (2018)</span>. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.</p>
+<p>Use of the GAUC methodology was limited to index reaches with a minimum of two redds and at least three weeks with at least one new redd found. For those reaches, we used the method described in <span class="citation">Millar et al. (2012)</span> and <span class="citation">Murdoch et al. (2018)</span>. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.</p>
 <p>For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. <a href="#eq:net-error">(2.1)</a>). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from 0 to 0, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.</p>
 <p>When summing reach-scale estimates to obtain estimates at the stream scale, an attempt was made to incorporate the fact that the reaches within a stream are not independent. Estimates of correlation between the reaches within a stream were made based on weekly observed redds. This method may not be perfect, since spawners could use certain reaches preferentially at different times in the season, but it may be the best we can do. Because correlations are often quite high between reaches, this is a better alternative than to naively assume the standard errors between reaches are independent of one another. These correlation estimates were combined withestimates of standard error at the reach scale to calculate a covariance matrix for the reaches within each stream, which was used when summing estimates of total redds to estimate the standard error at the stream scale. Failure to incorporate the correlations between reaches would result in an underestimate of standard error at the stream scales. Different streams (and therefore reaches in different streams) were assumed to be independent.</p>
 </div>
 <div id="estimating-spawners" class="section level2">
 <h2><span class="header-section-number">2.4</span> Estimating Spawners</h2>
-<p>Esimates of escapement to various tributaries in the Wenatchee were made using a branching patch-occupancy model (Waterhouse, L. et al., <em>in review</em>) based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. pre-spawn mortality only occurs in the mainstem).</p>
+<p>Esimates of escapement to various tributaries in the Wenatchee were made using a branching patch-occupancy model (Waterhouse, L. et al., <em>in review</em>) based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem).</p>
 <p>To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupany model observed to move into the lower or upper Wenatchee (below or above Tumwater dam), but not into tributaries upstream of Tumwater. FpR was calculated as the ratio of male to female fish, plus 1. Reaches W1 - W7 are below Tumwater, while reaches W8 - W10 are above Tumwater. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas above and below Tumwater.</p>
 </div>
 <div id="prespawn-mortality" class="section level2">
@@ -1735,6 +1735,7 @@ Tumwater
 </tbody>
 </table>
 <p>We can also compare estimates of escapement to the mainstem lower Wenatchee (after subtracting the the fish removed at Dryden) and to the upper mainstem above Tumwater (after subtracting the fish removed at Tumwater) to total estimates of spawners in mainstem areas below and above Tumwater dam. This allows us to estimate prespawn mortality in the mainstem above and below Tumwater, by origin. Using this approach, it is unclear which area deaths due to harvest should apply to, which is a moot point in years when there was no harvest.</p>
+<p>If any group had a higher estimates of spawners compared to escapement, we fixed our prespawn mortality estimate at 0, reflecting a very low level of prespawn mortality. There is uncertainty in both the escapement and spawner estimates, which could explain why these types of scenarios could arise.</p>
 <div style="page-break-after: always;"></div>
 </div>
 </div>
@@ -1935,10 +1936,10 @@ W2
 Index
 </td>
 <td style="text-align:right;">
-0.736
+1
 </td>
 <td style="text-align:right;">
-0.238
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2051,10 +2052,10 @@ W6
 Non-Index
 </td>
 <td style="text-align:right;">
-0.925
+1
 </td>
 <td style="text-align:right;">
-0.223
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2080,22 +2081,22 @@ W6
 Index
 </td>
 <td style="text-align:right;">
-0.784
+0.82
 </td>
 <td style="text-align:right;">
-0.232
+0.194
 </td>
 <td style="text-align:right;">
 2
 </td>
 <td style="text-align:right;">
-3
+2
 </td>
 <td style="text-align:right;">
-0.6
+0.5
 </td>
 <td style="text-align:right;">
-0.197
+0.236
 </td>
 </tr>
 <tr>
@@ -2109,22 +2110,22 @@ W8
 Index
 </td>
 <td style="text-align:right;">
-0.484
+0.741
 </td>
 <td style="text-align:right;">
-0.301
+0.266
 </td>
 <td style="text-align:right;">
 1
 </td>
 <td style="text-align:right;">
-2
+1
 </td>
 <td style="text-align:right;">
-0.6
+0.4
 </td>
 <td style="text-align:right;">
-0.31
+0.359
 </td>
 </tr>
 <tr>
@@ -2138,10 +2139,10 @@ W9
 Non-Index
 </td>
 <td style="text-align:right;">
-1.055
+1
 </td>
 <td style="text-align:right;">
-0.225
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2167,22 +2168,22 @@ W9
 Index
 </td>
 <td style="text-align:right;">
-0.779
+0.686
 </td>
 <td style="text-align:right;">
-0.2
+0.171
 </td>
 <td style="text-align:right;">
 8
 </td>
 <td style="text-align:right;">
-10
+12
 </td>
 <td style="text-align:right;">
-4.5
+5
 </td>
 <td style="text-align:right;">
-0.454
+0.417
 </td>
 </tr>
 <tr>
@@ -2196,10 +2197,10 @@ W10
 Non-Index
 </td>
 <td style="text-align:right;">
-0.558
+1
 </td>
 <td style="text-align:right;">
-0.301
+0
 </td>
 <td style="text-align:right;">
 0
@@ -2225,22 +2226,22 @@ W10
 Index
 </td>
 <td style="text-align:right;">
-0.472
+0.679
 </td>
 <td style="text-align:right;">
-0.357
+0.301
 </td>
 <td style="text-align:right;">
 16
 </td>
 <td style="text-align:right;">
-34
+24
 </td>
 <td style="text-align:right;">
-15.3
+9.6
 </td>
 <td style="text-align:right;">
-0.449
+0.4
 </td>
 </tr>
 </tbody>
@@ -2416,13 +2417,13 @@ Y
 25
 </td>
 <td style="text-align:right;">
-46
+37
 </td>
 <td style="text-align:right;">
-13.353
+8.134
 </td>
 <td style="text-align:right;">
-0.3
+0.2
 </td>
 </tr>
 <tr>
@@ -2468,10 +2469,10 @@ Y
 2
 </td>
 <td style="text-align:right;">
-3
+2
 </td>
 <td style="text-align:right;">
-0.592
+0.472
 </td>
 <td style="text-align:right;">
 0.2
@@ -2494,13 +2495,13 @@ Total
 28
 </td>
 <td style="text-align:right;font-weight: bold;">
-50
+40
 </td>
 <td style="text-align:right;font-weight: bold;">
-13.366
+8.148
 </td>
 <td style="text-align:right;font-weight: bold;">
-0.3
+0.2
 </td>
 </tr>
 </tbody>
@@ -2689,10 +2690,10 @@ W6
 Index
 </td>
 <td style="text-align:left;">
-4 (0.23)
+2 (0.27)
 </td>
 <td style="text-align:left;">
-1 (0.31)
+1 (0.34)
 </td>
 </tr>
 <tr>
@@ -2717,10 +2718,10 @@ W8
 Index
 </td>
 <td style="text-align:left;">
-2 (0.35)
+1 (0.4)
 </td>
 <td style="text-align:left;">
-2 (0.36)
+1 (0.4)
 </td>
 </tr>
 <tr>
@@ -2731,10 +2732,10 @@ W9
 Index
 </td>
 <td style="text-align:left;">
-9 (0.48)
+11 (0.45)
 </td>
 <td style="text-align:left;">
-9 (0.49)
+10 (0.45)
 </td>
 </tr>
 <tr>
@@ -2759,10 +2760,10 @@ W10
 Index
 </td>
 <td style="text-align:left;">
-30 (0.48)
+21 (0.43)
 </td>
 <td style="text-align:left;">
-29 (0.48)
+20 (0.44)
 </td>
 </tr>
 <tr>
@@ -2913,10 +2914,10 @@ Total
 <ul>
 <li></td>
 <td style="text-align:left;font-weight: bold;">
-327 (0.35)
+317 (0.35)
 </td>
 <td style="text-align:left;font-weight: bold;">
-169 (0.48)
+160 (0.47)
 </td>
 </tr>
 </tbody>
@@ -2926,9 +2927,9 @@ Total
 <div id="prespawn-mortality-1" class="section level2">
 <h2><span class="header-section-number">3.3</span> Prespawn Mortality</h2>
 <p>The estimates of overall prespawn mortality within the Wenatchee population, by origin, are shown in Table <a href="#tab:ps-mort-wen">3.5</a>. The estimates when split into the mainstream areas above and below Tumwater dam, are displayed in Table <a href="#tab:ps-mort-tum">3.6</a>.</p>
-<table>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
 <caption>
-<span id="tab:ps-mort-wen">Table 3.5: </span>Wenatchee pre-spawn mortality estimates. Includes estimates (standard error) of escapement, spawners, pre-spawn mortality, and standard error of this rate, separated by origin.
+<span id="tab:ps-mort-wen">Table 3.5: </span>Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.
 </caption>
 <thead>
 <tr>
@@ -2958,13 +2959,13 @@ Natural
 392 (44)
 </td>
 <td style="text-align:left;">
-327 (39)
+318 (37)
 </td>
 <td style="text-align:right;">
-0.165
+0.189
 </td>
 <td style="text-align:right;">
-0.135
+0.130
 </td>
 </tr>
 <tr>
@@ -2975,20 +2976,20 @@ Hatchery
 256 (38)
 </td>
 <td style="text-align:left;">
-169 (30)
+161 (28)
 </td>
 <td style="text-align:right;">
-0.341
+0.373
 </td>
 <td style="text-align:right;">
-0.151
+0.143
 </td>
 </tr>
 </tbody>
 </table>
-<table>
+<table class="table table-striped table-hover" style="margin-left: auto; margin-right: auto;">
 <caption>
-<span id="tab:ps-mort-tum">Table 3.6: </span>Wenatchee pre-spawn mortality estimates. Includes estimates (standard error) of escapement, spawners, pre-spawn mortality, and the standard error of this rate, separated by origin and mainstem areas above and below Tumwater dam.
+<span id="tab:ps-mort-tum">Table 3.6: </span>Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas above and below Tumwater dam.
 </caption>
 <thead>
 <tr>
@@ -3024,13 +3025,13 @@ Above Tumwater
 91 (26)
 </td>
 <td style="text-align:left;">
-41 (15)
+33 (10)
 </td>
 <td style="text-align:right;">
-0.550
+0.638
 </td>
 <td style="text-align:right;">
-0.210
+0.154
 </td>
 </tr>
 <tr>
@@ -3044,13 +3045,13 @@ Above Tumwater
 102 (28)
 </td>
 <td style="text-align:left;">
-39 (15)
+32 (10)
 </td>
 <td style="text-align:right;">
-0.617
+0.692
 </td>
 <td style="text-align:right;">
-0.176
+0.129
 </td>
 </tr>
 <tr>
@@ -3064,13 +3065,13 @@ Below Tumwater
 3 (10)
 </td>
 <td style="text-align:left;">
-4 (1)
+2 (1)
 </td>
 <td style="text-align:right;">
-0.000
+0.313
 </td>
 <td style="text-align:right;">
-2.879
+1.921
 </td>
 </tr>
 <tr>
@@ -3087,10 +3088,10 @@ Below Tumwater
 1 (0)
 </td>
 <td style="text-align:right;">
-0.897
+0.932
 </td>
 <td style="text-align:right;">
-0.103
+0.069
 </td>
 </tr>
 </tbody>
@@ -3100,8 +3101,8 @@ Below Tumwater
 <div id="discussion" class="section level1">
 <h1><span class="header-section-number">4</span> Discussion</h1>
 <p>Most of the covariates collected in 2018 were within the range of those in the model data set from <span class="citation">Murdoch et al. (2018)</span>, leading to estimates of net error in a very similar range to the model dataset (Figure <a href="#fig:covariate-comparison">2.1</a>). However, most reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only two reaches.</p>
-<p>The estimates of high prespawn mortality in the lower mainstem of the Wenatchee could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table <a href="#tab:redd-est-rch">3.1</a>). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches.</p>
-<p>As for any negative estimates of pre-spawn mortality rates, this should be interpretted as evidence for very low levels of pre-spawn mortality. Overlapping confidence intervals between estimated escapement and estimated spawners mean that although we estimated more spawners than esacpement, not too much should be made of that fact.</p>
+<p>The estimates of high prespawn mortality in the lower mainstem of the Wenatchee for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table <a href="#tab:redd-est-rch">3.1</a>). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches.</p>
+<p>As for any instance with higher estimates of spawners than escapement, this should be interpretted as evidence for very low levels of prespawn mortality. Overlapping confidence intervals between estimated escapement and estimated spawners mean that although we estimated more spawners than esacpement, not too much should be made of that fact.</p>
 </div>
 <div id="acknowledgements" class="section level1">
 <h1><span class="header-section-number">5</span> Acknowledgements</h1>
@@ -3125,7 +3126,7 @@ Below Tumwater
 </div>
 <!-- \newpage -->
 <!-- ### Colophon -->
-<!-- This report was generated on 2020-02-20 16:04:03 using the following computational environment and dependencies:  -->
+<!-- This report was generated on 2020-02-26 12:24:53 using the following computational environment and dependencies:  -->
 <!-- ```{r colophon, cache = FALSE} -->
 <!-- # which R packages and versions? -->
 <!-- if ("devtools" %in% installed.packages()) devtools::session_info() -->

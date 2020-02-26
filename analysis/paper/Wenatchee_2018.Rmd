@@ -9,6 +9,17 @@ institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_ABS.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
       fig_height: 6
@@ -22,17 +33,6 @@ output:
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
-      - --lua-filter=../templates/pagebreak.lua
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_ABS.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -129,8 +129,8 @@ redd_results = redd_df %>%
   summarise(n_weeks = n(),
             n_non0_wks = sum(NewRedds > 0, na.rm=T),
             tot_feat = sum(NewRedds, na.rm=T),
-            err_est = mean(NetError), 
-            err_se = mean(NetErrorSE)) %>%
+            err_est = mean(NetError[VisibleRedds > 0]), 
+            err_se = mean(NetErrorSE[VisibleRedds > 0])) %>%
   ungroup() %>%
   mutate(err_se = ifelse(is.na(err_est), 0, err_se),
          err_est = ifelse(is.na(err_est), 1, err_est)) %>%
@@ -142,14 +142,26 @@ redd_results = redd_df %>%
                            mod_df = x %>%
                              select(redds = NewRedds) %>%
                              mutate(day = 1:n())
+
+                           v_vec = x %>%
+                             filter(VisibleRedds > 0) %>%
+                             summarise_at(vars(NetError, NetErrorSE),
+                                          list(mean),
+                                          na.rm = T) %>%
+                             mutate(NetErrorSE = if_else(is.na(NetError),
+                                                         0,
+                                                         NetErrorSE),
+                                    NetError = if_else(is.na(NetError),
+                                                       1,
+                                                       NetError))
+                           
+                           # # if you want to assume no observer error
+                           # v_vec = tibble(NetError = 1,
+                           #                NetErrorSE = 0)
                            
                            res_list = fit_gauc(data = mod_df,
-                                               v = if_else(is.na(mean(x$NetError, na.rm = T)),
-                                                           1,
-                                                           mean(x$NetError, na.rm = T)),
-                                               v_se = if_else(is.na(mean(x$NetError, na.rm = T)),
-                                                              0,
-                                                              mean(x$NetErrorSE, na.rm = T)))
+                                               v = v_vec$NetError,
+                                               v_se = v_vec$NetErrorSE)
                            return(res_list)
                          })) %>%
   mutate(converged = map_lgl(gauc_list,
@@ -373,8 +385,10 @@ summary(net_err_mod)$coefficients %>%
   kable(digits = 3,
         booktabs = T,
         caption = "Net error model covariates and coefficients.") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"),
-                latex_options = "striped")
+  kable_styling(bootstrap_options = c("striped", 
+                                      "hover"),
+                latex_options = c("striped",
+                                  "hold_position"))
 ```
 
 ## Data
@@ -418,7 +432,7 @@ Those covariates in the observer error model were collected during each survey i
 
 ## Estimating Redds
 
-Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1.
+Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.
 
 For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. \@ref(eq:net-error)). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from `r paste(range(redd_df$NewRedds[redd_df$Index == 'N']), collapse = ' to ')`, any violoation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.
 
@@ -426,7 +440,7 @@ When summing reach-scale estimates to obtain estimates at the stream scale, an a
 
 ## Estimating Spawners
 
-Esimates of escapement to various tributaries in the Wenatchee were made using a branching patch-occupancy model (Waterhouse, L. et al., *in review*) based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. pre-spawn mortality only occurs in the mainstem).
+Esimates of escapement to various tributaries in the Wenatchee were made using a branching patch-occupancy model (Waterhouse, L. et al., *in review*) based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem).
 
 To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupany model observed to move into the lower or upper Wenatchee (below or above Tumwater dam), but not into tributaries upstream of Tumwater. FpR was calculated as the ratio of male to female fish, plus 1. Reaches W1 - W7 are below Tumwater, while reaches W8 - W10 are above Tumwater. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas above and below Tumwater. 
 
@@ -443,12 +457,13 @@ rem_df %>%
         booktabs = T) %>%
   kable_styling(bootstrap_options = c("striped", 
                                       "hover"),
-                latex_options = c("striped", 
-                                  "scale_down"))
+                latex_options = c("striped"))
 ```
 
 
 We can also compare estimates of escapement to the mainstem lower Wenatchee (after subtracting the the fish removed at Dryden) and to the upper mainstem above Tumwater (after subtracting the fish removed at Tumwater) to total estimates of spawners in mainstem areas below and above Tumwater dam. This allows us to estimate prespawn mortality in the mainstem above and below Tumwater, by origin. Using this approach, it is unclear which area deaths due to harvest should apply to, which is a moot point in years when there was no harvest.
+
+If any group had a higher estimates of spawners compared to escapement, we fixed our prespawn mortality estimate at 0, reflecting a very low level of prespawn mortality. There is uncertainty in both the escapement and spawner estimates, which could explain why these types of scenarios could arise. 
 
 ```{r}
 ps_mort_df = escp_wen %>%
@@ -596,13 +611,15 @@ strm_est %>%
         booktabs = T,
         format.args = list(drop0trailing = T),
         caption = "Estimate of redds for each stream") %>%
-  kable_styling(bootstrap_options = c("striped", "hover"),
-                latex_options = "striped") %>%
+  kable_styling(bootstrap_options = c("striped", 
+                                      "hover"),
+                latex_options = c("striped", 
+                                  "scale_down")) %>%
   row_spec(row = nrow(strm_est),
            hline_after = T) %>%
   row_spec(row = nrow(strm_est) + 1, 
            bold = T)
-  
+
 ```
 
 ## Spawner Estimates
@@ -665,14 +682,16 @@ The estimates of overall prespawn mortality within the Wenatchee population, by 
 ps_mort_wen %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
          Spawners = paste0(round_half_up(spwn_est), ' (', round_half_up(spwn_se), ')')) %>%
-  mutate_at(vars(ps_mort),
-            list(~ if_else(. < 0, 0, .))) %>%
+  mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort)) %>%
   select(Origin, Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se) %>%
   arrange(desc(Origin)) %>%
   kable(digits = 3,
-        caption = "Wenatchee pre-spawn mortality estimates. Includes estimates (standard error) of escapement, spawners, pre-spawn mortality, and standard error of this rate, separated by origin.")
+        booktabs = T,
+        caption = "Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
 ```
 
 
@@ -681,26 +700,31 @@ ps_mort_df %>%
   mutate(Area = recode(Area,
                        'TUM_bb' = 'Above Tumwater',
                        'Below_TUM' = 'Below Tumwater')) %>%
+  mutate_at(vars(escp),
+            list(~ if_else(. < 0, 0, .))) %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
          Spawners = paste0(round_half_up(spwn_est), ' (', round_half_up(spwn_se), ')')) %>%
-  mutate_at(vars(ps_mort),
-            list(~ if_else(. < 0, 0, .))) %>%
+  mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort)) %>%
   select(Origin, Area, Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se) %>%
   arrange(Area, desc(Origin)) %>%
   kable(digits = 3,
-        caption = "Wenatchee pre-spawn mortality estimates. Includes estimates (standard error) of escapement, spawners, pre-spawn mortality, and the standard error of this rate, separated by origin and mainstem areas above and below Tumwater dam.")
+        booktabs = T,
+        caption = "Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas above and below Tumwater dam.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
 ```
+
 
 
 # Discussion
 
 Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). However, most reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches. 
 
-The estimates of high prespawn mortality in the lower mainstem of the Wenatchee could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches.
+The estimates of high prespawn mortality in the lower mainstem of the Wenatchee for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches.
 
-As for any negative estimates of pre-spawn mortality rates, this should be interpretted as evidence for very low levels of pre-spawn mortality. Overlapping confidence intervals between estimated escapement and estimated spawners mean that although we estimated more spawners than esacpement, not too much should be made of that fact.
+As for any instance with higher estimates of spawners than escapement, this should be interpretted as evidence for very low levels of prespawn mortality. Overlapping confidence intervals between estimated escapement and estimated spawners mean that although we estimated more spawners than esacpement, not too much should be made of that fact.
 
 
 # Acknowledgements
