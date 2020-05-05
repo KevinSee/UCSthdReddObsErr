@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep redd data from 2019
 # Created: 1/29/2020
-# Last Modified: 2/19/2020
+# Last Modified: 5/4/2020
 # Notes: this data is from the Wenatchee
 
 #-----------------------------------------------------------------
@@ -40,6 +40,17 @@ redd_org = read_excel(paste0('analysis/data/raw_data/', yr, '_SteelheadData.xlsx
   mutate_at(vars(MeanThalwegCV),
             list(~ . * 100))
 
+# replace MeanThalwegCV with values calculated from ALL measurements (across years)
+data("thlwg_summ")
+redd_org %<>%
+  rename(thlwg_org = MeanThalwegCV) %>%
+  left_join(thlwg_summ %>%
+              select(Reach, MeanThalwegCV)) %>%
+  mutate(MeanThalwegCV = if_else(is.na(MeanThalwegCV),
+                                 thlwg_org,
+                                 MeanThalwegCV)) %>%
+  select(-thlwg_org)
+
 #-----------------------------------------------------------------
 # predict net error
 redd_df = predict_neterr(redd_org)
@@ -50,7 +61,7 @@ redd_df = predict_neterr(redd_org)
 library(PITcleanr)
 
 # load prepped data
-load('../DABOM_PriestRapids_Sthd_old/modelFits/PRA_Steelhead_2019_DABOM.rda')
+load(paste0('../DABOM_PriestRapids_Sthd_old/modelFits/PRA_Steelhead_', yr, '_DABOM.rda'))
 # fix a few prefixes for tags with known issues (Ben Truscott had to enter them incorrectly in his database)
 bio_df %<>%
   mutate(TagID = ifelse(!TagID %in% dabom_df$TagID,
@@ -173,15 +184,15 @@ escp_wen = all_escp %>%
 
 #-----------------------------------------------------------------
 # known removals at Tumwater and Dryden dams, by origin, for broodstock or surplussed
-# also account for any harvest by origin
-rem_df = crossing(Source = c('Tumwater', 'Dryden', 'Harvest'),
-                  Origin = c('Natural', 'Hatchery')) %>%
-  mutate(rem = c(37, 31,
-                 0, 0,
-                 27, 29)) %>%
-  mutate(Area = recode(Source,
-                       'Tumwater' = 'TUM_bb',
-                       'Dryden' = 'Below_TUM'))
+# # also account for any harvest by origin
+# rem_df = crossing(Source = c('Tumwater', 'Dryden', 'Harvest'),
+#                   Origin = c('Natural', 'Hatchery')) %>%
+#   mutate(rem = c(37, 31,
+#                  0, 0,
+#                  27, 29)) %>%
+#   mutate(Area = recode(Source,
+#                        'Tumwater' = 'TUM_bb',
+#                        'Dryden' = 'Below_TUM'))
 
 #-----------------------------------------------------------------
 # save
@@ -190,5 +201,5 @@ save(redd_df,
      wen_origin_tab,
      trib_spawners,
      escp_wen,
-     rem_df,
-     file = 'analysis/data/derived_data/wen_2019.rda')
+     # rem_df,
+     file = paste0('analysis/data/derived_data/wen_', yr, '.rda'))
