@@ -19,4 +19,4 @@ Suggests:
     testthat
 URL: https://github.com/KevinSee/SthdReddObsError
 BugReports: https://github.com/KevinSee/SthdReddObsError/issues
-RoxygenNote: 7.0.2
+RoxygenNote: 7.1.0

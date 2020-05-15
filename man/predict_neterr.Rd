@@ -4,10 +4,12 @@
 \alias{predict_neterr}
 \title{Predict Net Error}
 \usage{
-predict_neterr(data)
+predict_neterr(data, num_obs = c("two", "one"))
 }
 \arguments{
 \item{data}{dataframe containing columns with covariates in observer error model}
+
+\item{num_obs}{which error model to use, for one or two observers? Default is \code{two}.}
 }
 \value{
 tibble

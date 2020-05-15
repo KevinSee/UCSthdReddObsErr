@@ -5,12 +5,26 @@
 #' @author Kevin See
 #'
 #' @param data dataframe containing columns with covariates in observer error model
+#' @param num_obs which error model to use, for one or two observers? Default is \code{two}.
 #'
 #' @import dplyr
 #' @return tibble
 #' @export
 
-predict_neterr = function(data) {
+predict_neterr = function(data,
+                          num_obs = c('two', 'one')) {
+
+  num_obs = match.arg(num_obs)
+
+  if(num_obs == 'two') {
+    net_err_mod = two_obs_net_mod
+    covar_center = two_obs_covar_center
+  }
+
+  if(num_obs == 'one') {
+    net_err_mod = one_obs_net_mod
+    covar_center = one_obs_covar_center
+  }
 
   if(sum(!attr(net_err_mod$terms, "term.labels") %in% names(data)) > 0) {
     miss_covar = attr(net_err_mod$terms, "term.labels")[!attr(net_err_mod$terms, "term.labels") %in% names(data)]
