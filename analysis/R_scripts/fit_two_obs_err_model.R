@@ -12,7 +12,7 @@ library(lubridate)
 
 #-----------------------------------------------------------------
 # read in data
-redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-2013_1-3-14.csv') %>%
+two_obs_redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-2013_1-3-14.csv') %>%
   mutate(Date = mdy(Date)) %>%
   select(Year:Surveyor,
          Date,
@@ -28,9 +28,10 @@ redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-201
          NetError = TotalFeatures / VisibleRedds)
 
 # get mean and standard deviation of covariates
-covar_center = redd_data %>%
-  select(ExpSpTotal:ExpSpTotal_log) %>%
-  gather(metric, value) %>%
+two_obs_covar_center = two_obs_redd_data %>%
+  pivot_longer(cols = ExpSpTotal:ExpSpTotal_log,
+               names_to = "metric",
+               values_to = "value") %>%
   group_by(metric) %>%
   summarise_at(vars(value),
                list(mu = mean,
@@ -38,33 +39,36 @@ covar_center = redd_data %>%
                na.rm = T)
 
 # normalize covariates
-mod_data = redd_data %>%
-  gather(metric, value, one_of(covar_center$metric)) %>%
-  left_join(covar_center) %>%
+two_obs_mod_data = two_obs_redd_data %>%
+  pivot_longer(cols = one_of(two_obs_covar_center$metric),
+               names_to = "metric",
+               values_to = "value") %>%
+  left_join(two_obs_covar_center) %>%
   # mutate(value = value - mu) %>%
   mutate(value = (value - mu) / stddev ) %>%
   select(-mu, -stddev) %>%
-  spread(metric, value)
+  pivot_wider(names_from = "metric",
+              values_from = "value")
 
 # fit model
-net_err_mod = glm(NetError ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV + NaiveDensity_km,
-                  family = gaussian,
-                  data = mod_data)
+two_obs_net_mod = glm(NetError ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV + NaiveDensity_km,
+                          family = gaussian,
+                          data = two_obs_mod_data)
 
 
 #-----------------------------------------------------------------
 # save some things
-write_rds(redd_data,
-          path = 'analysis/data/derived_data/original_data.rds')
-write_rds(mod_data,
-          path = 'analysis/data/derived_data/model_data.rds')
-write_rds(net_err_mod,
-          path = 'analysis/data/derived_data/net_error_model.rds')
-write_rds(covar_center,
-          path = 'analysis/data/derived_data/covar_center.rds')
+write_rds(two_obs_redd_data,
+          path = 'analysis/data/derived_data/two_obs_original_data.rds')
+write_rds(two_obs_mod_data,
+          path = 'analysis/data/derived_data/two_obs_model_data.rds')
+write_rds(two_obs_net_mod,
+          path = 'analysis/data/derived_data/two_obs_net_error_model.rds')
+write_rds(two_obs_covar_center,
+          path = 'analysis/data/derived_data/two_obs_covar_center.rds')
 
-usethis::use_data(covar_center,
-                  net_err_mod,
+usethis::use_data(two_obs_covar_center,
+                  two_obs_net_mod,
                   internal = T,
                   overwrite = T,
                   version = 2)
