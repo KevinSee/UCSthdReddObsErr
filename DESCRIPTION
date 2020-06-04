@@ -1,12 +1,12 @@
 Package: SthdReddObsError
-Title: What the Package Does (One Line, Title Case)
+Title: Estimates Observer Error for Two-Person Steelhead Redd Surveys
 Version: 0.0.0.9000
 Authors@R:
     person(given = "First",
            family = "Last",
            role = c("aut", "cre"),
            email = "first.last@example.com")
-Description: What the package does (one paragraph)
+Description: Based on the model described in the manuscript listed in the README file, this package contains datasets documenting that model, and functions to estimate observer net error using that model.
 License: MIT + file LICENSE
 ByteCompile: true
 Encoding: UTF-8
