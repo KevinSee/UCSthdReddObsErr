@@ -2,13 +2,24 @@
 title: "Estimates of Wenatchee Steelhead Redds in 2019"
 author:
   - Kevin See:
-      email: Kevin.See@biomark.com
+      email: Kevin.See@merck.com
       institute: [biomark]
       correspondence: true
 institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_ABS.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
       fig_height: 6
@@ -22,17 +33,6 @@ output:
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
-      - --lua-filter=../templates/pagebreak.lua
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_ABS.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -105,14 +105,19 @@ knitr::write_bib(c("tidyverse",
 
 
 ```{r load-data}
-# redd_df = read_rds('../data/derived_data/wen_2018.rds')
-org_data = read_rds('../data/derived_data/original_data.rds')
-net_err_mod = read_rds('../data/derived_data/net_error_model.rds')
+org_data = read_rds('../data/derived_data/two_obs_original_data.rds')
+net_err_mod = read_rds('../data/derived_data/two_obs_net_error_model.rds')
 
 load('../data/derived_data/wen_2019.rda')
 
 # what year is this report for?
 yr = unique(year(redd_df$SurveyDate))
+
+# how many fish removed this year?
+data("removal_df")
+rem_df = removal_df %>%
+  filter(Year == yr) %>%
+  select(-Year)
 ```
 
 ```{r calc-total-redds}
@@ -471,7 +476,7 @@ ps_mort_df = escp_wen %>%
   left_join(rem_df %>%
               filter(Area != 'Harvest') %>%
               select(-Source)) %>%
-  mutate(escp = median - rem) %>%
+  mutate(escp = estimate - rem) %>%
   left_join(spwn_rch %>%
               select(-ends_with('cv')) %>%
               gather(type, value, Hatchery:Natural_SE) %>%
@@ -501,7 +506,7 @@ ps_mort_wen = escp_wen %>%
               group_by(Origin) %>%
               summarise_at(vars(rem),
                            list(sum))) %>%
-  mutate(escp = median - rem) %>%
+  mutate(escp = estimate - rem) %>%
   left_join(spwn_rch %>%
               select(-ends_with('cv')) %>%
               gather(type, value, Hatchery:Natural_SE) %>%
@@ -624,7 +629,27 @@ strm_est %>%
 
 ## Spawner Estimates
 
-Parameter estimates for fish / redd and proportion hatchery based on PIT tag data are shown in Table \@ref(tab:fpr-hatch-prop).
+Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref{tab:pit-tag-tab}). 
+
+```{r pit-tag-tab}
+wen_tags %>% 
+  mutate(Location = factor(Location,
+                           levels = c('Below_TUM',
+                                      'TUM_bb',
+                                      'Tribs_above_TUM')),
+         Location = fct_relabel(Location, 
+                                str_replace_all,
+                                pattern = "_",
+                                replacement = " ")) %>%
+  group_by(Location, Sex, Origin) %>% 
+  summarise(`n tags` = n_distinct(TagID)) %>% 
+  kable(booktabs = T,
+        caption = "Number of PIT tags detected in each area by sex and origin.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
+```
+
+Parameter estimates for fish / redd and proportion hatchery based on this PIT tag data are shown in Table \@ref(tab:fpr-hatch-prop).
 
 ```{r fpr-hatch-prop}
 wen_sex_tab %>%
