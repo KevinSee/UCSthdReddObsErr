@@ -2,7 +2,7 @@
 title: "Estimates of Wenatchee Steelhead Redds in 2018"
 author:
   - Kevin See:
-      email: Kevin.See@biomark.com
+      email: Kevin.See@merck.com
       institute: [biomark]
       correspondence: true
 institute:
