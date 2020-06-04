@@ -398,7 +398,7 @@ summary(net_err_mod)$coefficients %>%
 
 ## Data
 
-Redd counts were conducted on a nearly weekly basis for index reaches, and once during the peak spawning period for non-index reaches. The covariates in the observer error model of @Murdoch2018 were collected during each survey. They were compared with the covariates contained in the model data set, as well as the estimates of net error (Figure \@ref(fig:covariate-comparison)). 
+Redd counts were conducted on a nearly weekly basis for index reaches, and once during the peak spawning period for non-index reaches. The covariates in the observer error model of @Murdoch2018 were collected during each survey. The covariate of mean thalweg CV was calculated based on all measurements taken within a reach across years (assuming this covariate does not vary through time within a reach). They were compared with the covariates contained in the model data set, as well as the estimates of net error (Figure \@ref(fig:covariate-comparison)). 
 
 ```{r covariate-comparison, fig.cap = "Net error covariate values from the original study the predicted reaches in this report."}
 redd_df %>%
