@@ -13,15 +13,22 @@ This repository contains the data and code for our paper:
 > Canadian Journal of Fisheries and Aquatic Sciences
 > <https://doi.org/10.1139/cjfas-2017-0335>
 
+It also contains data and code demonstrating how this model has been
+used to estimate redds, using predictions of redd observer error. These
+estimates of redds are translated to estimates of spawners, and divided
+into natural origin and hatchery origin spawners, based on data from a
+separate [project](https://github.com/KevinSee/DabomPriestRapidsSthd)
+using PIT tagged steelhead to estimates escapement to various areas in
+the Upper Columbia.
+
 ### How to cite
 
 Please cite this compendium as:
 
-> Murdoch, A. R. and Herring, C. J. and Frady, C. H. and See, K. E. and
-> Jordan, C. E., (2020). *Compendium of R code and data for Estimating
+> See, K.E., (2020). *Compendium of R code and data for Estimating
 > observer error and steelhead redd abundance using a modified Gaussian
 > area-under-the-curve framework*. Accessed 04 Jun 2020. Online at
-> <https://doi.org/xxx/xxx>
+> <https://doi.org/10.1139/cjfas-2017-0335>
 
 ### How to download or install
 
