@@ -1,7 +1,7 @@
 # Author: Kevin See
-# Purpose: Prep redd data from 2018
+# Purpose: Prep redd data from 2019
 # Created: 1/29/2020
-# Last Modified: 2/19/2020
+# Last Modified: 5/5/2020
 # Notes: this data is from the Wenatchee
 
 #-----------------------------------------------------------------
@@ -13,20 +13,23 @@ library(janitor)
 library(magrittr)
 library(msm)
 library(SthdReddObsError)
+library(PITcleanr)
 
+# what year are we prepping?
+yr = 2018
 
 #-----------------------------------------------------------------
 # read in data
-redd_org = read_excel('analysis/data/raw_data/2018_SteelheadData.xlsx',
+redd_org = read_excel(paste0('analysis/data/raw_data/', yr, '_SteelheadData.xlsx'),
                       sheet = 1) %>%
   clean_names(case = "upper_camel") %>%
   rename(ExpSpTotal = ExpTotal,
          MeanThalwegCV = MeanThalwegCv) %>%
-  left_join(read_excel('analysis/data/raw_data/2018_SteelheadData.xlsx',
+  left_join(read_excel(paste0('analysis/data/raw_data/', yr, '_SteelheadData.xlsx'),
                        sheet = 'ReachArea')) %>%
   mutate_at(vars(River, Reach, Index, SurveyType),
             list(as.factor)) %>%
-  mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+  mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV),
             list(as.numeric)) %>%
   mutate_at(vars(SurveyDate),
             list(ymd)) %>%
@@ -38,24 +41,30 @@ redd_org = read_excel('analysis/data/raw_data/2018_SteelheadData.xlsx',
   mutate_at(vars(MeanThalwegCV),
             list(~ . * 100))
 
-# fix one thalweg data point
+# replace MeanThalwegCV with values calculated from ALL measurements (across years)
+data("thlwg_summ")
 redd_org %<>%
-  mutate_at(vars(MeanThalwegCV),
-            list(~ if_else(Reach == 'W10' & Index == 'Y',
-                           58.0,
-                           .)))
+  rename(thlwg_org = MeanThalwegCV) %>%
+  left_join(thlwg_summ %>%
+              select(Reach, MeanThalwegCV)) %>%
+  mutate(MeanThalwegCV = if_else(is.na(MeanThalwegCV),
+                                 thlwg_org,
+                                 MeanThalwegCV)) %>%
+  select(-thlwg_org) %>%
+  mutate(Reach = factor(Reach,
+                        levels = levels(redd_org$Reach)))
 
 #-----------------------------------------------------------------
 # predict net error
-redd_df = predict_neterr(redd_org)
+redd_df = predict_neterr(redd_org,
+                         num_obs = "two")
 
 #-----------------------------------------------------------------
 # pull in PIT tag escapement results for use in converting redds to spawners
 # library(DABOM)
-library(PITcleanr)
 
-# load prepped data
-load('../DABOM_PriestRapids_Sthd_old/modelFits/PRA_Steelhead_2018_DABOM.rda')
+# load DABOM results, including prepped data
+load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/PRA_Steelhead_', yr, '_DABOM.rda'))
 # fix a few prefixes for tags with known issues (Ben Truscott had to enter them incorrectly in his database)
 bio_df %<>%
   mutate(TagID = ifelse(!TagID %in% dabom_df$TagID,
@@ -64,7 +73,7 @@ bio_df %<>%
                                     '3DA'),
                         TagID))
 
-tag_summ = summariseTagData(proc_list$ProcCapHist %>%
+tag_summ = summariseTagData(proc_list$proc_ch %>%
                               mutate(lastObsDate = ObsDate) %>%
                               left_join(proc_list$NodeOrder %>%
                                           mutate(Group = fct_expand(Group, 'WellsPool'),
@@ -79,7 +88,20 @@ tag_summ = summariseTagData(proc_list$ProcCapHist %>%
                               mutate(SiteID = NodeSite),
                             trap_data = bio_df %>%
                               mutate(Age = str_replace(Age, 'r', 'R'))) %>%
-  rename(Branch = Group)
+  rename(Branch = Group) %>%
+  # deal with duplicated records (usually from fish caught in the trap twice)
+  arrange(TagID, TrapDate) %>%
+  group_by(TagID) %>%
+  slice(1) %>%
+  ungroup()
+
+# any duplicated tags?
+identical(nrow(tag_summ),
+          n_distinct(tag_summ$TagID))
+
+# tag_summ %>%
+#   filter(TagID %in% TagID[duplicated(TagID)]) %>%
+#   select(TagID, TrapDate:CWT)
 
 wen_tags = tag_summ %>%
   filter(grepl('LWE', TagPath)) %>%
@@ -143,10 +165,8 @@ wen_origin_tab = wen_prop_origin %>%
   mutate(prop_se = sqrt((h_prop * w_prop) / tot_tags))
 
 # pull in some estimates from DABOM
-all_escp = read_excel('../DABOM_PriestRapids_Sthd_old/outgoing/PRA_Steelhead_2018_20181219.xlsx',
-                      'All Escapement') %>%
-  mutate_at(vars(skew, kurtosis),
-            list(as.numeric))
+all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20200604.xlsx'),
+                      'All Escapement')
 
 trib_spawners = all_escp %>%
   filter(param %in% c('past_ICL',
@@ -158,7 +178,7 @@ trib_spawners = all_escp %>%
                       'past_NAL',
                       'past_LWN',
                       'past_WTL')) %>%
-  select(Origin, Location = param, Spawners = median, Spawners_SE = sd) %>%
+  select(Origin, Location = param, Spawners = estimate, Spawners_SE = se) %>%
   arrange(Location, Origin)
 
 escp_wen = all_escp %>%
@@ -171,22 +191,8 @@ escp_wen = all_escp %>%
                        'LWE_bb' = 'Below_TUM',
                        'UWE_bb' = 'TUM_bb')) %>%
   group_by(Area, Origin) %>%
-  summarise(mean = sum(mean),
-            median = sum(median),
-            mode = sum(mode),
-            se = sqrt(sum(sd^2)))
-
-#-----------------------------------------------------------------
-# known removals at Tumwater and Dryden dams, by origin, for broodstock or surplussed
-# also account for any harvest by origin
-rem_df = crossing(Source = c('Tumwater', 'Dryden', 'Harvest'),
-                  Origin = c('Natural', 'Hatchery')) %>%
-  mutate(rem = c(27, 14,
-                 0, 0,
-                 62, 66)) %>%
-  mutate(Area = recode(Source,
-                       'Tumwater' = 'TUM_bb',
-                       'Dryden' = 'Below_TUM'))
+  summarise(estimate = sum(estimate),
+            se = sqrt(sum(se^2)))
 
 #-----------------------------------------------------------------
 # save
@@ -195,5 +201,4 @@ save(redd_df,
      wen_origin_tab,
      trib_spawners,
      escp_wen,
-     rem_df,
-     file = 'analysis/data/derived_data/wen_2018.rda')
+     file = paste0('analysis/data/derived_data/wen_', yr, '.rda'))
