@@ -7,21 +7,20 @@
 
 This repository contains the data and code for our paper:
 
-> Authors, (YYYY). *Title of your paper goes here*. Name of journal/book
-> <https://doi.org/xxx/xxx>
-
-Our pre-print is online here:
-
-> Authors, (YYYY). *Title of your paper goes here*. Name of
-> journal/book, Accessed 20 Jan 2020. Online at
-> <https://doi.org/xxx/xxx>
+> Murdoch, A. R. and Herring, C. J. and Frady, C. H. and See, K. E. and
+> Jordan, C. E., (2018). *Estimating observer error and steelhead redd
+> abundance using a modified Gaussian area-under-the-curve framework*.
+> Canadian Journal of Fisheries and Aquatic Sciences
+> <https://doi.org/10.1139/cjfas-2017-0335>
 
 ### How to cite
 
 Please cite this compendium as:
 
-> Authors, (2020). *Compendium of R code and data for Title of your
-> paper goes here*. Accessed 20 Jan 2020. Online at
+> Murdoch, A. R. and Herring, C. J. and Frady, C. H. and See, K. E. and
+> Jordan, C. E., (2020). *Compendium of R code and data for Estimating
+> observer error and steelhead redd abundance using a modified Gaussian
+> area-under-the-curve framework*. Accessed 04 Jun 2020. Online at
 > <https://doi.org/xxx/xxx>
 
 ### How to download or install
