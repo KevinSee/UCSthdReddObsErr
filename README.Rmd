@@ -25,7 +25,7 @@ This repository contains the data and code for our paper:
 
 > `r Author`, (`r Year`). _`r Title`_. `r Journal`  <https://doi.org/10.1139/cjfas-2017-0335>
 
-It also contains data and code demonstrating how this model has been used to estimate redds, using predictions of redd observer error. These estimates of redds are translated to estimates of spawners, and divided into natural origin and hatchery origin spawners, based on data from a separate [project](https://github.com/KevinSee/DabomPriestRapidsSthd) using PIT tagged steelhead to estimates escapement to various areas in the Upper Columbia. 
+It also contains data and code demonstrating how this model has been used to estimate redds, using predictions of redd observer error. These estimates of redds are translated to estimates of spawners, and divided into natural origin and hatchery origin spawners, based on data from a separate [project](https://github.com/KevinSee/DabomPriestRapidsSthd) using PIT tagged steelhead to estimates escapement to various areas in the Upper Columbia. The reports are contained in the "outoing/reports" folder that is available after cloning or downloading this compendium. 
 
 ### How to cite
 
@@ -35,14 +35,14 @@ Please cite this compendium as:
 
 ### How to download or install
 
-You can download the compendium as a zip from from this URL: </archive/master.zip>
+You can download the compendium as a zip from from this URL: <https://github.com/KevinSee/SthdReddObsError/archive/master.zip>
 
 Or you can install this compendium as an R package, SthdReddObsError, from GitHub with:
 
 
 ```{r gh-installation, eval = FALSE}
 # install.packages("devtools")
-remotes::install_github("/")
+remotes::install_github("KevinSee/SthdReddObsError")
 ```
 
 

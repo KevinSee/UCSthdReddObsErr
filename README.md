@@ -19,7 +19,8 @@ estimates of redds are translated to estimates of spawners, and divided
 into natural origin and hatchery origin spawners, based on data from a
 separate [project](https://github.com/KevinSee/DabomPriestRapidsSthd)
 using PIT tagged steelhead to estimates escapement to various areas in
-the Upper Columbia.
+the Upper Columbia. The reports are contained in the “outoing/reports”
+folder that is available after cloning or downloading this compendium.
 
 ### How to cite
 
@@ -27,20 +28,20 @@ Please cite this compendium as:
 
 > See, K.E., (2020). *Compendium of R code and data for Estimating
 > observer error and steelhead redd abundance using a modified Gaussian
-> area-under-the-curve framework*. Accessed 04 Jun 2020. Online at
+> area-under-the-curve framework*. Accessed 05 Jun 2020. Online at
 > <https://doi.org/10.1139/cjfas-2017-0335>
 
 ### How to download or install
 
 You can download the compendium as a zip from from this URL:
-</archive/master.zip>
+<https://github.com/KevinSee/SthdReddObsError/archive/master.zip>
 
 Or you can install this compendium as an R package, SthdReddObsError,
 from GitHub with:
 
 ``` r
 # install.packages("devtools")
-remotes::install_github("/")
+remotes::install_github("KevinSee/SthdReddObsError")
 ```
 
 ### Licenses
