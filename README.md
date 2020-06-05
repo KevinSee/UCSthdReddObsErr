@@ -3,6 +3,8 @@
 
 # SthdReddObsError
 
+[![DOI](https://zenodo.org/badge/236863843.svg)](https://zenodo.org/badge/latestdoi/236863843)
+
 [![Binder](https://mybinder.org/badge_logo.svg)](https://mybinder.org/v2/gh///master?urlpath=rstudio)
 
 This repository contains the data and code for our paper:
@@ -29,7 +31,7 @@ Please cite this compendium as:
 > See, K.E., (2020). *Compendium of R code and data for Estimating
 > observer error and steelhead redd abundance using a modified Gaussian
 > area-under-the-curve framework*. Accessed 05 Jun 2020. Online at
-> <https://doi.org/10.1139/cjfas-2017-0335>
+> <http://doi.org/10.5281/zenodo.3879190>
 
 ### How to download or install
 
