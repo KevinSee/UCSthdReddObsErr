@@ -82,7 +82,7 @@ library(msm)
 library(knitr)
 library(kableExtra)
 library(english)
-library(SthdReddObsError)
+library(UCSthdReddObsErr)
 
 theme_set(theme_bw())
 
