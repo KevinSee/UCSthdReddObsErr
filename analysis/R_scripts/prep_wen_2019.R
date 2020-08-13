@@ -12,7 +12,7 @@ library(readxl)
 library(janitor)
 library(magrittr)
 library(msm)
-library(SthdReddObsError)
+library(UCSthdReddObsErr)
 
 # what year are we prepping?
 yr = 2019

@@ -1,4 +1,4 @@
 library(testthat)
-library(SthdReddObsError)
+library(UCSthdReddObsErr)
 
-test_check("SthdReddObsError")
+test_check("UCSthdReddObsErr")

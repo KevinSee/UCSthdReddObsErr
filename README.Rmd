@@ -17,7 +17,7 @@ Year <- 2018
 Journal <- "Canadian Journal of Fisheries and Aquatic Sciences"
 ```
 
-# SthdReddObsError
+# Upper Columbia Steelhead Redd Observer Error
 
 [![DOI](https://zenodo.org/badge/236863843.svg)](https://zenodo.org/badge/latestdoi/236863843)
 
@@ -37,14 +37,14 @@ Please cite this compendium as:
 
 ### How to download or install
 
-You can download the compendium as a zip from from this URL: <https://github.com/KevinSee/SthdReddObsError/archive/master.zip>
+You can download the compendium as a zip from from this URL: <https://github.com/BiomarkABS/UCSthdReddObsErr/archive/master.zip>
 
-Or you can install this compendium as an R package, SthdReddObsError, from GitHub with:
+Or you can install this compendium as an R package, UCSthdReddObsErr, from GitHub with:
 
 
 ```{r gh-installation, eval = FALSE}
 # install.packages("devtools")
-remotes::install_github("KevinSee/SthdReddObsError")
+remotes::install_github("BiomarkABS/UCSthdReddObsErr")
 ```
 
 

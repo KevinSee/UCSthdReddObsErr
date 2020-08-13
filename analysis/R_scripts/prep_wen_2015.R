@@ -12,7 +12,7 @@ library(readxl)
 library(janitor)
 library(magrittr)
 library(msm)
-library(SthdReddObsError)
+library(UCSthdReddObsErr)
 library(PITcleanr)
 
 # what year are we prepping?

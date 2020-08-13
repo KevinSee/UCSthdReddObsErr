@@ -1,7 +1,7 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# SthdReddObsError
+# Upper Columbia Steelhead Redd Observer Error
 
 [![DOI](https://zenodo.org/badge/236863843.svg)](https://zenodo.org/badge/latestdoi/236863843)
 
@@ -30,20 +30,20 @@ Please cite this compendium as:
 
 > See, K.E., (2020). *Compendium of R code and data for Estimating
 > observer error and steelhead redd abundance using a modified Gaussian
-> area-under-the-curve framework*. Accessed 05 Jun 2020. Online at
+> area-under-the-curve framework*. Accessed 13 Aug 2020. Online at
 > <http://doi.org/10.5281/zenodo.3879190>
 
 ### How to download or install
 
 You can download the compendium as a zip from from this URL:
-<https://github.com/KevinSee/SthdReddObsError/archive/master.zip>
+<https://github.com/BiomarkABS/UCSthdReddObsErr/archive/master.zip>
 
-Or you can install this compendium as an R package, SthdReddObsError,
+Or you can install this compendium as an R package, UCSthdReddObsErr,
 from GitHub with:
 
 ``` r
 # install.packages("devtools")
-remotes::install_github("KevinSee/SthdReddObsError")
+remotes::install_github("BiomarkABS/UCSthdReddObsErr")
 ```
 
 ### Licenses

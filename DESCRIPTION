@@ -1,11 +1,11 @@
-Package: SthdReddObsError
+Package: UCSthdReddObsErr
 Title: Estimates Observer Error for Two-Person Steelhead Redd Surveys
 Version: 0.0.0.9000
 Authors@R:
-    person(given = "First",
-           family = "Last",
+    person(given = "Kevin",
+           family = "See",
            role = c("aut", "cre"),
-           email = "first.last@example.com")
+           email = "Kevin.See@merck.com")
 Description: Based on the model described in the manuscript listed in the README file, this package contains datasets documenting that model, and functions to estimate observer net error using that model.
 License: MIT + file LICENSE
 ByteCompile: true
@@ -17,6 +17,6 @@ Suggests:
     devtools,
     git2r,
     testthat
-URL: https://github.com/KevinSee/SthdReddObsError
-BugReports: https://github.com/KevinSee/SthdReddObsError/issues
+URL: https://github.com/BiomarkABS/UCSthdReddObsErr
+BugReports: https://github.com/BiomarkABS/UCSthdReddObsErr/issues
 RoxygenNote: 7.1.0
