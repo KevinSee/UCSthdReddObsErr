@@ -33,6 +33,14 @@ removal_df = read_excel('analysis/data/raw_data/2014 to 2019 STHD Removals_Harve
                        'Tumwater' = 'TUM_bb',
                        'Dryden' = 'Below_TUM'))
 
+# add on 2020
+removal_df %>%
+  select(Source, Origin, Area) %>%
+  distinct() %>%
+  mutate(Year = 2020) %>%
+  mutate(rem = NA_real_) %>%
+  select(all_of(names(removal_df)))
+
 #-----------------------------------------------------------------
 # mean thalweg CV, using all measurements across years
 thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
