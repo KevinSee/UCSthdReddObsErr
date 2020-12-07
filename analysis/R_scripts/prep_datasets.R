@@ -34,12 +34,20 @@ removal_df = read_excel('analysis/data/raw_data/2014 to 2019 STHD Removals_Harve
                        'Dryden' = 'Below_TUM'))
 
 # add on 2020
-removal_df %>%
+removal_2020 = removal_df %>%
   select(Source, Origin, Area) %>%
   distinct() %>%
   mutate(Year = 2020) %>%
-  mutate(rem = NA_real_) %>%
+  mutate(rem = c(22+17,
+                 16+17,
+                 0, 0,
+                 12+12,
+                 18+15)) %>%
   select(all_of(names(removal_df)))
+
+removal_df = removal_df %>%
+  bind_rows(removal_2020) %>%
+  distinct()
 
 #-----------------------------------------------------------------
 # mean thalweg CV, using all measurements across years
