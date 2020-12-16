@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prepare some datasets for inclusion in the package
 # Created: 5/4/2020
-# Last Modified: 5/4/2020
+# Last Modified: 12/16/2020
 # Notes: This data was sent by Michael Hughes
 
 #-----------------------------------------------------------------
@@ -50,21 +50,30 @@ removal_df = removal_df %>%
   distinct()
 
 #-----------------------------------------------------------------
+# save for use in package
+usethis::use_data(removal_df,
+                  overwrite = T)
+
+
+#-----------------------------------------------------------------
 # mean thalweg CV, using all measurements across years
 thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
                         skip = 1) %>%
   rename(Year = `...1`) %>%
-  mutate(Year = as.integer(Year)) %>%
+  mutate(across(Year,
+                as.integer)) %>%
   filter(!is.na(Year)) %>%
-  gather(Reach, CV, W1:W10) %>%
-  mutate_at(vars(CV),
-            list(as.numeric)) %>%
+  mutate(across(-Year,
+                as.numeric)) %>%
+  pivot_longer(W1:W10,
+               names_to = "Reach",
+               values_to = "CV") %>%
   group_by(Reach) %>%
   summarise(n_yrs = n_distinct(Year[!is.na(CV)]),
             n_meas = sum(!is.na(CV)),
             MeanThalwegCV = mean(CV, na.rm = T)) %>%
-  mutate_at(vars(MeanThalwegCV),
-            list(~ . * 100)) %>%
+  mutate(across(MeanThalwegCV,
+                ~ . * 100)) %>%
   mutate(MeanThalwegCV = if_else(Reach == 'W4',
                                  MeanThalwegCV[Reach =="W5"],
                                  MeanThalwegCV)) %>%
@@ -74,6 +83,6 @@ thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
 
 #-----------------------------------------------------------------
 # save for use in package
-usethis::use_data(removal_df, thlwg_summ,
+usethis::use_data(thlwg_summ,
                   overwrite = T)
 
