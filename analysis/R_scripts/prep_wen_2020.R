@@ -169,7 +169,7 @@ wen_origin_tab = wen_prop_origin %>%
   mutate(prop_se = sqrt((h_prop * w_prop) / tot_tags))
 
 # pull in some estimates from DABOM
-all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20201216.xlsx'),
+all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20201218.xlsx'),
                       'All Escapement')
 
 trib_spawners = all_escp %>%
