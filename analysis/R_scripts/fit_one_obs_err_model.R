@@ -74,8 +74,15 @@ write_rds(one_obs_net_mod,
 write_rds(one_obs_covar_center,
           path = 'analysis/data/derived_data/one_obs_covar_center.rds')
 
+#-----------------------------------------------------------------
+# save for use in package functions
+two_obs_covar_center = read_rds('analysis/data/derived_data/two_obs_covar_center.rds')
+two_obs_net_mod = read_rds('analysis/data/derived_data/two_obs_net_error_model.rds')
+
 usethis::use_data(one_obs_covar_center,
                   one_obs_net_mod,
+                  two_obs_covar_center,
+                  two_obs_net_mod,
                   internal = T,
                   overwrite = T,
                   version = 2)
