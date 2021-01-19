@@ -65,13 +65,13 @@ redd_df = predict_neterr(redd_org,
 
 # load DABOM results, including prepped data
 load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/PRA_Steelhead_', yr, '_DABOM.rda'))
-# fix a few prefixes for tags with known issues (Ben Truscott had to enter them incorrectly in his database)
-bio_df %<>%
-  mutate(TagID = ifelse(!TagID %in% dabom_df$TagID,
-                        str_replace(TagID,
-                                    '^3DD',
-                                    '3DA'),
-                        TagID))
+# # fix a few prefixes for tags with known issues (Ben Truscott had to enter them incorrectly in his database)
+# bio_df %<>%
+#   mutate(TagID = ifelse(!TagID %in% proc_list$ProcCapHist$TagID,
+#                         str_replace(TagID,
+#                                     '^3DD',
+#                                     '3DA'),
+#                         TagID))
 
 tag_summ = summariseTagData(proc_list$proc_ch %>%
                               mutate(lastObsDate = ObsDate) %>%
@@ -137,7 +137,7 @@ wen_sex_tab = wen_prop_sex %>%
                      m_prop = M)) %>%
   rowwise() %>%
   mutate(prop_se = sqrt((f_prop * m_prop) / tot_tags),
-         # calculate fish / redd as F:M + 1
+         # calculate fish / redd as M:F + 1
          fpr = (m_prop / f_prop) + 1,
          fpr_se = deltamethod(~ (x1 / x2) + 1,
                               mean = c(m_prop, f_prop),
