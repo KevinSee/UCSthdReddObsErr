@@ -7,7 +7,7 @@
 #' @param data dataframe containing columns with covariates in observer error model
 #' @param num_obs which error model to use, for one or two observers? Default is \code{two}.
 #'
-#' @import dplyr tidyr
+#' @import dplyr tidyr tibble
 #' @return tibble
 #' @export
 
@@ -45,7 +45,7 @@ predict_neterr = function(data,
                       backtransform = T,
                       type = 'link',
                       se.fit = T) %>%
-                tbl_df() %>%
+                tibble::as_tibble() %>%
                 select(NetError = fit,
                        NetErrorSE = se.fit))
 
