@@ -7,7 +7,7 @@
 #' @param data dataframe containing columns with covariates in observer error model
 #' @param num_obs which error model to use, for one or two observers? Default is \code{two}.
 #'
-#' @import dplyr
+#' @import dplyr tidyr
 #' @return tibble
 #' @export
 
@@ -32,11 +32,14 @@ predict_neterr = function(data,
   }
 
   pred_df = data %>%
-    gather(metric, value, one_of(covar_center$metric)) %>%
+    tidyr::pivot_longer(any_of(covar_center$metric),
+                        names_to = "metric",
+                        values_to = "value") %>%
     left_join(covar_center) %>%
     mutate(value = (value - mu) / stddev ) %>%
     select(-mu, -stddev) %>%
-    spread(metric, value) %>%
+    tidyr::pivot_wider(names_from = "metric",
+                       values_from = "value") %>%
     bind_cols(predict(net_err_mod,
                       newdata = .,
                       backtransform = T,
@@ -47,9 +50,9 @@ predict_neterr = function(data,
                        NetErrorSE = se.fit))
 
   pred_df = pred_df %>%
-    select(-one_of(covar_center$metric)) %>%
+    select(-any_of(covar_center$metric)) %>%
     left_join(data) %>%
-    select(one_of(names(data)), everything())
+    select(any_of(names(data)), everything())
 
   return(pred_df)
 
