@@ -17,20 +17,20 @@ one_obs_redd_data = read_excel('analysis/data/raw_data/Observer Efficiency all y
                                2) %>%
   mutate(Date = ymd(Date)) %>%
   clean_names(case = 'big_camel') %>%
-  mutate(NaiveDensity_km = VisibleRedds / (ReachLengthM * 1000)) %>%
+  mutate(NaiveDensity_km = TotalFeatures / (ReachLengthM * 1000)) %>%
   select(Year:Reach,
          Surveyor,
          Date,
          VisibleRedds,
          TotalFeatures,
          CorrectRedds,
-         OmittedRedds,,
+         OmittedRedds,
          ExpSpTotal,
          MeanWidth,
          MeanDepth,
          MeanDischarge = MeanDis,
          MeanThalwegCV = MeanThalwegCv,
-         NaiveDensity_km = NaiveDensity) %>%
+         NaiveDensity_km) %>%
   mutate(ExpSpTotal_log = log(ExpSpTotal + 1),
          NetError = TotalFeatures / VisibleRedds)
 
