@@ -662,8 +662,8 @@ spwn_rch %>%
   bind_rows(summarise(.,
                       Hatchery = sum(Hatchery),
                       Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE, na.rm = T)^2),
-                      Natural_SE = sqrt(sum(Natural_SE, na.rm = T)^2)) %>%
+                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
+                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
               mutate(h_cv = Hatchery_SE / Hatchery,
                      n_cv = Natural_SE / Natural,
                      Area = "Total")) %>%

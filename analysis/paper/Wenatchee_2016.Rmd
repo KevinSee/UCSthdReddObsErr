@@ -9,17 +9,6 @@ institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_ABS.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
-      - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
       fig_height: 6
@@ -33,6 +22,17 @@ output:
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_ABS.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -681,8 +681,8 @@ spwn_rch %>%
   bind_rows(summarise(.,
                       Hatchery = sum(Hatchery),
                       Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE, na.rm = T)^2),
-                      Natural_SE = sqrt(sum(Natural_SE, na.rm = T)^2)) %>%
+                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
+                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
               mutate(h_cv = Hatchery_SE / Hatchery,
                      n_cv = Natural_SE / Natural,
                      Area = "Total")) %>%
