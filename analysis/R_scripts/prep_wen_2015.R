@@ -1,8 +1,13 @@
 # Author: Kevin See
 # Purpose: Prep redd data from 2019
 # Created: 1/29/2020
-# Last Modified: 6/4/2020
+# Last Modified: 10/18/2020
 # Notes: this data is from the Wenatchee
+
+#-----------------------------------------------------------------
+# install old version of PITcleanr
+remotes::install_github("KevinSee/PITcleanr",
+                        ref = "v1.2.0")
 
 #-----------------------------------------------------------------
 # load needed libraries
@@ -14,6 +19,7 @@ library(magrittr)
 library(msm)
 library(UCSthdReddObsErr)
 library(PITcleanr)
+library(here)
 
 # what year are we prepping?
 yr = 2015
@@ -22,7 +28,7 @@ yr = 2015
 # read in data
 file_nm = "2015 Wenatchee Steelhead Redd Modeling Data - Final.xlsx"
 
-redd_org = read_excel(paste0('analysis/data/raw_data/', file_nm),
+redd_org = read_excel(here('analysis/data/raw_data/', file_nm),
                       sheet = 1) %>%
   clean_names(case = "upper_camel") %>%
   rename(ExpSpTotal = MeanTotalExperience,
@@ -31,7 +37,7 @@ redd_org = read_excel(paste0('analysis/data/raw_data/', file_nm),
          SurveyType = SurveyTypeWeeklyOrPeak,
          MeanEffortHrs = MeanEffort,
          MeanDischarge = Discharge) %>%
-  left_join(read_excel(paste0('analysis/data/raw_data/', file_nm),
+  left_join(read_excel(here('analysis/data/raw_data/', file_nm),
                        sheet = 'Reach Area') %>%
               mutate(Index = if_else(Type == "Index",
                                      "Y",
@@ -112,6 +118,11 @@ identical(nrow(tag_summ),
 #   select(TagID, TrapDate:CWT)
 
 wen_tags = tag_summ %>%
+  select(-TagPath) %>%
+  left_join(proc_list$NodeOrder %>%
+              select(AssignSpawnNode = Node,
+                     TagPath = Path),
+            by = "AssignSpawnNode") %>%
   filter(grepl('LWE', TagPath)) %>%
   mutate(Area = ifelse(AssignSpawnNode == 'TUM',
                        'TUM_bb',
@@ -121,6 +132,39 @@ wen_tags = tag_summ %>%
   mutate(Area = factor(Area,
                        levels = c("Below_TUM", 'TUM_bb', 'Tribs_above_TUM'))) %>%
   select(TagID, Location = Area, Origin, Sex)
+
+# add in tags from specific tribs
+wen_tags %<>%
+  # filter(Location != "Tribs_above_TUM") %>%
+  bind_rows(tag_summ %>%
+              filter(str_detect(AssignSpawnNode, "CHL")) %>%
+              mutate(Location = "Chiwawa") %>%
+              select(TagID, Location, Origin, Sex)) %>%
+  bind_rows(tag_summ %>%
+              filter(str_detect(AssignSpawnNode, "NAL")) %>%
+              mutate(Location = "Nason") %>%
+              select(TagID, Location, Origin, Sex)) %>%
+  bind_rows(tag_summ %>%
+              filter(str_detect(AssignSpawnNode, "PES")) %>%
+              mutate(Location = "Peshastin") %>%
+              select(TagID, Location, Origin, Sex)) %>%
+  mutate(Location = factor(Location,
+                           levels = c("Below_TUM",
+                                      "TUM_bb",
+                                      "Tribs_above_TUM",
+                                      "Peshastin",
+                                      "Nason",
+                                      "Chiwawa")))
+
+# # remove duplicated tags
+# wen_tags %<>%
+#   filter(!TagID %in% TagID[duplicated(TagID)]) %>%
+#   bind_rows(wen_tags %>%
+#               filter(TagID %in% TagID[duplicated(TagID)]) %>%
+#               filter(str_detect(Location,
+#                                 "_TUM$",
+#                                 negate = T)))
+
 
 #-------------------------------------------------------
 # if differentiating between above and below Tumwater
@@ -172,9 +216,35 @@ wen_origin_tab = wen_prop_origin %>%
                      w_prop = W)) %>%
   mutate(prop_se = sqrt((h_prop * w_prop) / tot_tags))
 
+#-----------------------------------------------------------------
 # pull in some estimates from DABOM
 all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20200604.xlsx'),
                       'All Escapement')
+
+
+#-----------------------------------------------------------------
+# read in redd counts below PIT tag arrays
+redds_below_arrays = read_excel(here('analysis/data/raw_data',
+                                     'Tributary Redds_Below Arrays_2014 to 2021.xlsx'),
+                                skip = 1) %>%
+  rename(Year = `...1`,
+         Total = `...5`,
+         Notes = `...6`) %>%
+  filter(Year == yr) %>%
+  select(starts_with("WEN")) %>%
+  pivot_longer(everything(),
+               names_to = "Reach",
+               values_to = "redd_est") %>%
+  mutate(across(redd_est,
+                as.numeric)) %>%
+  mutate(across(Reach,
+                str_remove,
+                "^WEN-")) %>%
+  mutate(redd_se = 0) %>%
+  add_column(River = "Wenatchee",
+             .before = 0)
+
+
 
 trib_spawners = all_escp %>%
   filter(param %in% c('past_ICL',
@@ -205,9 +275,11 @@ escp_wen = all_escp %>%
 #-----------------------------------------------------------------
 # save
 save(redd_df,
+     redds_below_arrays,
      wen_tags,
      wen_sex_tab,
      wen_origin_tab,
      trib_spawners,
      escp_wen,
-     file = paste0('analysis/data/derived_data/wen_', yr, '.rda'))
+     file = here('analysis/data/derived_data',
+                 paste0('wen_', yr, '.rda')))
