@@ -1,6 +1,6 @@
 ---
 title: "Estimates of Wenatchee Steelhead Redds and Spawners"
-subtitle: "Spawn Year 2015"
+subtitle: "Spawn Year 2016"
 author:
   - Kevin See:
       email: Kevin.See@merck.com
@@ -111,7 +111,7 @@ knitr::write_bib(c("tidyverse",
 
 ```{r load-data}
 # what year is this report for?
-yr = 2015
+yr = 2016
 
 # load data for this year
 load(here('analysis/data/derived_data',
@@ -766,6 +766,7 @@ ps_mort_wen %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
          Spawners = paste0(round_half_up(spwn_est), ' (', round_half_up(spwn_se), ')')) %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
+         ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
   select(Origin, Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
@@ -790,6 +791,7 @@ ps_mort_df %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
          Spawners = paste0(round_half_up(spwn_est), ' (', round_half_up(spwn_se), ')')) %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
+         ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
   select(Origin, Area, Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
