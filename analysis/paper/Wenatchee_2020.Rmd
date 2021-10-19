@@ -1,5 +1,6 @@
 ---
-title: "Estimates of Wenatchee Steelhead Redds in 2020"
+title: "Estimates of Wenatchee Steelhead Redds and Spawners"
+subtitle: "Spawn Year 2020"
 author:
   - Kevin See:
       email: Kevin.See@merck.com
@@ -9,6 +10,17 @@ institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_ABS.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
       fig_height: 6
@@ -22,17 +34,6 @@ output:
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
-      - --lua-filter=../templates/pagebreak.lua
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_ABS.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -72,8 +73,8 @@ knitr::opts_chunk$set(
 ```
 
 ```{r packages}
-# setwd('analysis/paper')
 
+# load these packages
 library(tidyverse)
 library(lubridate)
 library(janitor)
@@ -83,6 +84,7 @@ library(knitr)
 library(kableExtra)
 library(english)
 library(UCSthdReddObsErr)
+library(here)
 
 theme_set(theme_bw())
 
@@ -110,15 +112,16 @@ knitr::write_bib(c("tidyverse",
 
 
 ```{r load-data}
+# what year is this report for?
+yr = 2020
+
+# load data for this year
+load(here('analysis/data/derived_data',
+          paste0('wen_', yr, '.rda')))
+
 # org_data = read_rds('../data/derived_data/two_obs_original_data.rds')
 # net_err_mod = read_rds('../data/derived_data/two_obs_net_error_model.rds')
 
-# load('../data/derived_data/wen_2019.rda')
-load('../data/derived_data/wen_2020.rda')
-
-# what year is this report for?
-# yr = unique(year(redd_df$SurveyDate))
-yr = 2020
 
 # how many fish removed this year?
 data("removal_df")
@@ -339,7 +342,7 @@ spwn_strm %>%
 
 # Discussion
 
-Despite the lack of redd count data this year, we were able to estimate the number of spawners, by origin through applying an empirical estimate of mainstem overwinter survival to escapement estimates to the mainstem areas. When accounting for known removals, the known number of fish removed sometimes exceeded the patch-occupancy estimate to that area, but the removals were within the 95% confidence interval of that estimate. Therefore, in any situation when removals exceeded patch-occupancy estimates, we set escapement equal to zero. This was only applicable to hatchery fish below Tumwater this year. 
+Despite the lack of redd count data this year, we were able to estimate the number of spawners, by origin, through applying an empirical estimate of mainstem overwinter survival to escapement estimates to the mainstem areas. When accounting for known removals, the known number of fish removed sometimes exceeded the patch-occupancy estimate to that area, but the removals were within the 95% confidence interval of that estimate. Therefore, in any situation when removals exceeded patch-occupancy estimates, we set escapement equal to zero. This was only applicable to hatchery fish below Tumwater this year. 
 
 # Acknowledgements
 
