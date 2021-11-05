@@ -239,25 +239,36 @@ all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_St
 
 #-----------------------------------------------------------------
 # read in redd counts below PIT tag arrays
+
+# redds_below_arrays = read_excel(here('analysis/data/raw_data',
+#                                      'Tributary Redds_Below Arrays_2014 to 2021.xlsx'),
+#                                 skip = 1) %>%
+#   rename(Year = `...1`,
+#          Total = `...5`,
+#          Notes = `...6`) %>%
+#   filter(Year == yr) %>%
+#   select(starts_with("WEN")) %>%
+#   pivot_longer(everything(),
+#                names_to = "Reach",
+#                values_to = "redd_est") %>%
+#   mutate(across(redd_est,
+#                 as.numeric)) %>%
+#   mutate(across(Reach,
+#                 str_remove,
+#                 "^WEN-")) %>%
+#   mutate(redd_se = 0) %>%
+#   add_column(River = "Wenatchee",
+#              .before = 0)
+
 redds_below_arrays = read_excel(here('analysis/data/raw_data',
-                                     'Tributary Redds_Below Arrays_2014 to 2021.xlsx'),
-                                skip = 1) %>%
-  rename(Year = `...1`,
-         Total = `...5`,
-         Notes = `...6`) %>%
-  filter(Year == yr) %>%
-  select(starts_with("WEN")) %>%
-  pivot_longer(everything(),
-               names_to = "Reach",
-               values_to = "redd_est") %>%
-  mutate(across(redd_est,
-                as.numeric)) %>%
-  mutate(across(Reach,
-                str_remove,
-                "^WEN-")) %>%
-  mutate(redd_se = 0) %>%
-  add_column(River = "Wenatchee",
-             .before = 0)
+                file_nm),
+           sheet = "Tributaries 2021") %>%
+  group_by(River, Reach) %>%
+  summarise(redd_est = sum(New.Redds),
+            redd_se = 0,
+            .groups = "drop")
+
+
 
 trib_spawners = all_escp %>%
   filter(param %in% c('past_ICL',
