@@ -35,6 +35,7 @@ redd_org = read_excel(here('analysis/data/raw_data',
   rename(ExpSpTotal = ExpTotal,
          MeanThalwegCV = MeanThalwegCv,
          MeanDischarge = MeanDailyDiscahrge) %>%
+  # get reach lengths from earlier dataset
   left_join(read_excel(here('analysis/data/raw_data/',
                             "2019_SteelheadData.xlsx"),
                        sheet = 'ReachArea') %>%
