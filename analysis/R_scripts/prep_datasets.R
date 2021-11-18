@@ -1,18 +1,20 @@
 # Author: Kevin See
 # Purpose: Prepare some datasets for inclusion in the package
 # Created: 5/4/2020
-# Last Modified: 12/16/2020
+# Last Modified: 11/17/2021
 # Notes: This data was sent by Michael Hughes
 
 #-----------------------------------------------------------------
 # load needed libraries
 library(tidyverse)
+library(magrittr)
 library(readxl)
 library(usethis)
+library(here)
 
 #-----------------------------------------------------------------
 # removals at various sources, by year
-removal_df = read_excel('analysis/data/raw_data/2014 to 2019 STHD Removals_Harvest and Brood Collected.xlsx',
+removal_df = read_excel(here('analysis/data/raw_data/2014 to 2019 STHD Removals_Harvest and Brood Collected.xlsx'),
                     range = "A3:H9") %>%
   rename(Year = "...1") %>%
   gather(label, rem, -Year) %>%
@@ -45,8 +47,36 @@ removal_2020 = removal_df %>%
                  18+15)) %>%
   select(all_of(names(removal_df)))
 
-removal_df = removal_df %>%
+removal_df %<>%
   bind_rows(removal_2020) %>%
+  distinct()
+
+# add on 2021
+removal_2021 = read_excel(here("analysis/data/raw_data",
+                               "STHD 2021 Spawn Year Removals.xlsx"),
+                          1,
+                          skip = 1) %>%
+  mutate(Year = 2021) %>%
+  filter(Location != "Grand Total") %>%
+  rename(Source = Location) %>%
+  mutate(across(Source,
+                fct_recode,
+                "Dryden" = "WEN-DRY",
+                "Tumwater" = "WEN-TUM")) %>%
+  select(-`Grand Total`) %>%
+  pivot_longer(c(Hatchery, Wild),
+               names_to = "Origin",
+               values_to = "rem") %>%
+  mutate(across(Origin,
+                fct_recode,
+                "Natural" = "Wild")) %>%
+  mutate(Area = recode(Source,
+                       'Tumwater' = 'TUM_bb',
+                       'Dryden' = 'Below_TUM')) %>%
+  select(any_of(names(removal_df)))
+
+removal_df %<>%
+  bind_rows(removal_2021) %>%
   distinct()
 
 #-----------------------------------------------------------------
