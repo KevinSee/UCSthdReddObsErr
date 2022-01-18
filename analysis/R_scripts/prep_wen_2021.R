@@ -266,6 +266,9 @@ trib_spawners = all_escp %>%
          Location = location,
          Spawners = estimate,
          Spawners_SE = se) %>%
+  mutate(Origin = recode(Origin,
+                         "W" = "Natural",
+                         "H" = "Hatchery")) %>%
   arrange(Location, Origin)
 
 escp_wen = all_escp %>%
@@ -277,8 +280,11 @@ escp_wen = all_escp %>%
                        'LWE' = 'Wen_all',
                        'LWE_bb' = 'Below_TUM',
                        'UWE_bb' = 'TUM_bb')) %>%
+  mutate(Origin = recode(origin,
+                         "W" = "Natural",
+                         "H" = "Hatchery")) %>%
   group_by(Area,
-           Origin = origin) %>%
+           Origin) %>%
   summarise(estimate = sum(estimate),
             se = sqrt(sum(se^2)),
             .groups = "drop")
