@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep redd data from 2019
 # Created: 11/4/2021
-# Last Modified: 1/18/2022
+# Last Modified: 2/14/2022
 # Notes: this data is from the Wenatchee
 
 #-----------------------------------------------------------------
@@ -27,6 +27,10 @@ redd_org = read_excel(here('analysis/data/raw_data',
                            file_nm),
                       sheet = 1) %>%
   clean_names(case = "upper_camel") %>%
+  mutate(MeanEffortHrs = hms(paste(hour(MeanEffortHrs),
+                                   minute(MeanEffortHrs),
+                                   second(MeanEffortHrs))),
+         MeanEffortHrs = as.duration(MeanEffortHrs) / dhours(1)) %>%
   rename(ExpSpTotal = ExpTotal,
          MeanThalwegCV = MeanThalwegCv,
          MeanDischarge = MeanDailyDiscahrge) %>%
@@ -71,7 +75,8 @@ redd_df = predict_neterr(redd_org,
 # pull in PIT tag escapement results for use in converting redds to spawners
 
 # load DABOM results, including prepped data
-load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/PITcleanr/UC_Steelhead_', yr, '.rda'))
+# load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/PITcleanr/UC_Steelhead_', yr, '.rda'))
+load('../DabomPriestRapidsSthd/analysis/data/derived_data/site_config.rda')
 load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/PRA_DABOM_Steelhead_', yr, '.rda'))
 
 
@@ -82,35 +87,8 @@ tag_summ <- summarizeTagData(filter_obs,
                                ungroup())
 
 # look at which branch each tag was assigned to for spawning
-brnch_df = buildNodeOrder(addParentChildNodes(parent_child, configuration)) %>%
-  separate(col = path,
-           into = paste("step", 1:max(.$node_order), sep = "_"),
-           remove = F) %>%
-  mutate(group = if_else(node == "PRA",
-                         "Start",
-                         if_else(grepl('LWE', path) | node %in% c("CLK"),
-                                 "Wenatchee",
-                                 if_else(grepl("ENL", path),
-                                         "Entiat",
-                                         if_else(grepl("LMR", path),
-                                                 "Methow",
-                                                 if_else(grepl("OKL", path) | node %in% c("FST"),
-                                                         "Okanogan",
-                                                         if_else(step_2 != "RIA" & !is.na(step_2),
-                                                                 "BelowPriest",
-                                                                 if_else(node == "WEA",
-                                                                         "WellsPool",
-                                                                         "Other")))))))) %>%
-  select(-starts_with("step")) %>%
-  mutate(group = factor(group,
-                        levels = c("Wenatchee",
-                                   "Entiat",
-                                   "Methow",
-                                   "Okanogan",
-                                   "BelowPriest",
-                                   "WellsPool",
-                                   "Start",
-                                   "Other")))
+brnch_df = buildNodeOrder(addParentChildNodes(parent_child,
+                                              configuration))
 
 tag_summ %<>%
   left_join(brnch_df,
