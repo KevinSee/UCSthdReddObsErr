@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep redd data from 2021
 # Created: 11/4/2021
-# Last Modified: 1/18/2022
+# Last Modified: 2/14/2022
 # Notes: this data is from the Methow
 
 #-----------------------------------------------------------------
@@ -85,13 +85,17 @@ tag_summ %<>%
 # pull out Methow tags
 met_tags = tag_summ %>%
   filter(str_detect(path, "LMR")) %>%
-  mutate(Area = ifelse(spawn_node == 'MRC',
+  mutate(Area = ifelse(str_detect(spawn_node, "^MRC"),
                        'MRC_bb',
                        if_else(str_detect(path, 'MRC'),
                               'Tribs_above_MRC',
                               'Below_MRC'))) %>%
   mutate(Area = factor(Area,
                        levels = c("Below_MRC", 'MRC_bb', 'Tribs_above_MRC'))) %>%
+  mutate(Area = fct_recode(Area,
+                           "Below_MRC" = "MRC_bb"),
+         Area = fct_recode(Area,
+                           "Mainstem Methow" = "Below_MRC")) %>%
   select(TagID = tag_code,
          Location = Area,
          Origin = origin,
@@ -128,8 +132,9 @@ met_tags %<>%
                      Origin = origin,
                      Sex = sex)) %>%
   mutate(Location = factor(Location,
-                           levels = c("Below_MRC",
-                                      "MRC_bb",
+                           levels = c("Mainstem Methow",
+                           # levels = c("Below_MRC",
+                           #            "MRC_bb",
                                       "Tribs_above_MRC",
                                       "Twisp",
                                       "Chewuch",
@@ -247,6 +252,9 @@ escp_met = all_escp %>%
                        'LMR' = 'Met_all',
                        'LMR_bb' = 'Below_MRC',
                        'MRC_bb' = 'MRC_bb')) %>%
+  mutate(Area = recode(Area,
+                       "Below_MRC" = "Mainstem Methow",
+                       "MRC_bb" = "Mainstem Methow")) %>%
   mutate(Origin = recode(origin,
                          "W" = "Natural",
                          "H" = "Hatchery")) %>%
