@@ -85,64 +85,68 @@ tag_summ %<>%
 # pull out Methow tags
 met_tags = tag_summ %>%
   filter(str_detect(path, "LMR")) %>%
-  mutate(Area = ifelse(str_detect(spawn_node, "^MRC"),
-                       'MRC_bb',
-                       if_else(str_detect(path, 'MRC'),
-                              'Tribs_above_MRC',
-                              'Below_MRC'))) %>%
+  mutate(Area = if_else(str_detect(spawn_node, "^MRC") |
+                          str_detect(spawn_node, "^LMR"),
+                        'Lower Methow',
+                        if_else(str_detect(path, " LBC"),
+                                "Libby",
+                                if_else(str_detect(path, " GLC"),
+                                        "Gold",
+                                        if_else(str_detect(path, " BVC"),
+                                                "Beaver",
+                                                if_else(str_detect(path, " TWR"),
+                                                        "Twisp",
+                                                        if_else(str_detect(path, " MSH"),
+                                                                "Methow Fish Hatchery",
+                                                                if_else(str_detect(path, " SCP"),
+                                                                        "Spring Creek",
+                                                                        if_else(str_detect(path, " CRW"),
+                                                                                "Chewuch",
+                                                                                if_else(str_detect(path, " MRW"),
+                                                                                        "Upper Methow",
+                                                                                        NA_character_)))))))))) %>%
   mutate(Area = factor(Area,
-                       levels = c("Below_MRC", 'MRC_bb', 'Tribs_above_MRC'))) %>%
-  mutate(Area = fct_recode(Area,
-                           "Below_MRC" = "MRC_bb"),
-         Area = fct_recode(Area,
-                           "Mainstem Methow" = "Below_MRC")) %>%
+                       levels = c("Lower Methow",
+                                  "Upper Methow",
+                                  "Chewuch",
+                                  "Twisp",
+                                  "Methow Fish Hatchery",
+                                  "Spring Creek",
+                                  "Beaver",
+                                  "Gold",
+                                  "Libby"))) %>%
   select(TagID = tag_code,
          Location = Area,
          Origin = origin,
-         Sex = sex)
+         Sex = sex,
+         AD = ad_clip,
+         CWT = cwt)
 
-# add in tags from specific tribs
+# differentiate different tags in hatchery fish
 met_tags %<>%
-  bind_rows(tag_summ %>%
-              filter(str_detect(path, "TWR")) %>%
-              mutate(Location = "Twisp") %>%
-              select(TagID = tag_code,
-                     Location,
-                     Origin = origin,
-                     Sex = sex)) %>%
-  bind_rows(tag_summ %>%
-              filter(str_detect(path, "CRW")) %>%
-              mutate(Location = "Chewuch") %>%
-              select(TagID = tag_code,
-                     Location,
-                     Origin = origin,
-                     Sex = sex)) %>%
-  bind_rows(tag_summ %>%
-              filter(str_detect(path, "BVC")) %>%
-              mutate(Location = "Beaver") %>%
-              select(TagID = tag_code,
-                     Location,
-                     Origin = origin,
-                     Sex = sex)) %>%
-  bind_rows(tag_summ %>%
-              filter(str_detect(path, "MRW")) %>%
-              mutate(Location = "AboveWinthrop") %>%
-              select(TagID = tag_code,
-                     Location,
-                     Origin = origin,
-                     Sex = sex)) %>%
-  mutate(Location = factor(Location,
-                           levels = c("Mainstem Methow",
-                           # levels = c("Below_MRC",
-                           #            "MRC_bb",
-                                      "Tribs_above_MRC",
-                                      "Twisp",
-                                      "Chewuch",
-                                      "Beaver",
-                                      "AboveWinthrop")))
+  mutate(Group = if_else(Origin == "W",
+                         "W",
+                         if_else(!is.na(AD) & is.na(CWT),
+                                 "HOR-SN",
+                                 if_else(!is.na(CWT),
+                                         "HOR-C",
+                                         NA_character_)))) %>%
+  mutate(Group = factor(Group,
+                        levels = c("W",
+                                   "HOR-SN",
+                                   "HOR-C")))
+
+# filter out some areas not needed for the report
+met_tags %<>%
+  filter(Location %in% c("Lower Methow",
+                         "Upper Methow",
+                         "Chewuch",
+                         "Twisp")) %>%
+  mutate(across(Location,
+                fct_drop))
 
 #-------------------------------------------------------
-# if differentiating between above and below Tumwater
+# if calculating a different fish / redd in each area
 met_prop_sex = met_tags %>%
   group_by(Location, Sex) %>%
   summarise(n_tags = n()) %>%
@@ -175,9 +179,11 @@ met_sex_tab = met_prop_sex %>%
                               cov = diag(prop_se^2, nrow = 2)))
 
 met_prop_origin = met_tags %>%
-  group_by(Location, Origin) %>%
+  group_by(Location, Origin = Group) %>%
   summarise(n_tags = n(),
             .groups = "drop") %>%
+  full_join(expand(met_tags, Location, Origin = Group)) %>%
+  arrange(Location, Origin) %>%
   mutate(across(n_tags,
                 replace_na,
                 0)) %>%
@@ -185,23 +191,21 @@ met_prop_origin = met_tags %>%
               summarise(tot_tags = sum(n_tags),
                         .groups = "drop")) %>%
   mutate(prop = n_tags / tot_tags,
-         prop_se = sqrt((prop * (1 - prop)) / tot_tags))
+         prop_se = sqrt((prop * (1 - prop)) / tot_tags)) %>%
+  relocate(tot_tags, .after = Origin)
 
 met_origin_tab = met_prop_origin %>%
   select(Location, Origin, tot_tags, n_tags) %>%
   pivot_wider(names_from = Origin,
               values_from = n_tags,
               values_fill = 0) %>%
-  rename(h_tags = H,
-         w_tags = W) %>%
   left_join(met_prop_origin %>%
               select(Location, Origin, tot_tags, prop) %>%
               pivot_wider(names_from = Origin,
                           values_from = prop,
                           values_fill = 0) %>%
-              rename(h_prop = H,
-                     w_prop = W)) %>%
-  mutate(prop_se = sqrt((h_prop * w_prop) / tot_tags))
+              rename_with(.fn = function(x) paste(x, "p", sep = "_"),
+                          .cols = -c(1:2)))
 
 #-----------------------------------------------------------------
 # pull in some estimates from DABOM
@@ -213,6 +217,30 @@ max_date = max(est_dates) %>%
 
 all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/UC_Steelhead_', yr, '_', max_date, '.xlsx'),
                       'All Escapement')
+
+# mrk_grp_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/UC_Steelhead_', yr, '_', max_date, '.xlsx'),
+#                           "Mark Group Site Escapement")
+#
+# mrk_grp_escp %>%
+#   mutate(Area = if_else(location %in% c("TWR", "TWISPW"),
+#                         "Twisp",
+#                         if_else(location %in% c("CRW", "CRU"),
+#                                 "Chewuch",
+#                                 if_else(location %in% c("LMR_bb", "MRC_bb"),
+#                                         "Lower Methow",
+#                                         if_else(location %in% c("MRW", "WFC"),
+#                                                 "Upper Methow",
+#                                                 NA_character_))))) %>%
+#   filter(!is.na(Area)) %>%
+#   mutate(Group = recode(mark_grp,
+#                         "AD_CWT" = "HOR-C",
+#                         "AD_noCWT" = "HOR-SN",
+#                         "AI_CWT" = "HOR-C",
+#                         "AI_noCWT" = NA_character_,
+#                         "Wild" = "W")) %>%
+#   group_by(Area, Group) %>%
+#   summarize(Org_Spawners = sum(estimate),
+#             Org_SE = sqrt(sum(se^2)))
 
 #-----------------------------------------------------------------
 # read in redd counts below PIT tag arrays
@@ -235,6 +263,14 @@ trib_spawners = all_escp %>%
                          "CRW",
                          "SCP",
                          "BVC")) %>%
+  mutate(location = recode(location,
+                           "GLC" = "Gold",
+                           "LBC" = "Libby",
+                           "MSH" = "Methow Fish Hatchery",
+                           "MRW" = "Upper Methow",
+                           "TWR" = "Twisp",
+                           "CRW" = "Chewuch",
+                           "BVC" = "Beaver")) %>%
   select(Origin = origin,
          Location = location,
          Spawners = estimate,
@@ -250,11 +286,8 @@ escp_met = all_escp %>%
                          'MRC_bb')) %>%
   mutate(Area = recode(location,
                        'LMR' = 'Met_all',
-                       'LMR_bb' = 'Below_MRC',
-                       'MRC_bb' = 'MRC_bb')) %>%
-  mutate(Area = recode(Area,
-                       "Below_MRC" = "Mainstem Methow",
-                       "MRC_bb" = "Mainstem Methow")) %>%
+                       'LMR_bb' = 'Lower Methow',
+                       'MRC_bb' = 'Lower Methow')) %>%
   mutate(Origin = recode(origin,
                          "W" = "Natural",
                          "H" = "Hatchery")) %>%
@@ -270,6 +303,7 @@ save(redd_df,
      # redds_below_arrays,
      met_tags,
      met_sex_tab,
+     met_prop_origin,
      met_origin_tab,
      trib_spawners,
      escp_met,
