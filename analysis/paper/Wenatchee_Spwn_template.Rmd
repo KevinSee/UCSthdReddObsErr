@@ -699,7 +699,7 @@ summ_redd_tab %>%
 
 ## Spawner Estimates
 
-Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref{tab:pit-tag-tab}). 
+Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref(tab:pit-tag-tab). 
 
 ```{r pit-tag-tab}
 wen_tags %>% 
