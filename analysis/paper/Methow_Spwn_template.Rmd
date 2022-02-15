@@ -90,7 +90,6 @@ library(lubridate)
 library(janitor)
 library(magrittr)
 library(msm)
-library(readxl)
 library(knitr)
 library(kableExtra)
 library(english)
@@ -241,7 +240,7 @@ mainstm_est_naive = redd_results %>%
   filter(str_detect(Reach,
                     "MRW[[:digit:]]",
                     negate = F)) %>%
-  mutate(Location = "Mainstem Methow") %>%
+  mutate(Location = "Lower Methow") %>%
   select(River, Index, Location, Reach, tot_feat, redd_est, redd_se) %>%
   group_by(River, Location, Index) %>%
   nest() %>%
@@ -252,7 +251,7 @@ mainstm_est_naive = redd_results %>%
                           })) %>%
   # get correlations between reaches within a stream
   left_join(redd_df %>%
-              mutate(Location = "Mainstem Methow") %>%
+              mutate(Location = "Lower Methow") %>%
               group_by(River, Location, Index) %>%
               nest()) %>%
   # filter(n_rchs > 1) %>%
@@ -375,15 +374,15 @@ spwn_rch <- low_met_spwn %>%
   arrange(Location, Reach,
           Type)
 
-spwn_rch %>%
-  mutate(prnt_val = paste0(round_half_up(Org_Spawners),
-                           " (",
-                           round(Org_SE, 2),
-                           ")")) %>%
-  select(-starts_with("Org")) %>%
-  pivot_wider(names_from = Origin,
-              values_from = prnt_val,
-              names_sort = T)
+# spwn_rch %>%
+#   mutate(prnt_val = paste0(round_half_up(Org_Spawners),
+#                            " (",
+#                            round(Org_SE, 2),
+#                            ")")) %>%
+#   select(-starts_with("Org")) %>%
+#   pivot_wider(names_from = Origin,
+#               values_from = prnt_val,
+#               names_sort = T)
 ```
 
 
@@ -488,7 +487,7 @@ When summing reach-scale estimates to obtain estimates at the stream scale, an a
 Estimates of escapement to various tributaries in the Methow were made using a branching patch-occupancy model [@Waterhouse2020] based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem). 
 <!-- Reaches below the PIT tag arrays in some tributaries were surveyed for redds, but we assumed there was no observer error in those reaches.  -->
 
-To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the mainstem Methow, but not into tributaries. FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
+To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower mainstem Methow, but not into tributaries (between PTAGIS sites LMR and MRW). FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the lower mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
 <!-- For reaches in tributaries below the tributary PIT tag array, FpR and proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary. -->
 
 ## Prespawn Mortality
@@ -647,9 +646,9 @@ summ_redd_tab = redd_results %>%
                                        "^MRW[[:digit:]]",
                                        negate = T),
                             "Tributary",
-                            "Mainstem Methow"),
+                            "Lower Methow"),
          Location = factor(Location,
-                           levels = c("Mainstem Methow",
+                           levels = c("Lower Methow",
                                       "Tributary"))) %>%
   mutate(across(Reach,
                 as.factor)) %>%
@@ -682,7 +681,7 @@ summ_redd_tab %>%
   kable(digits = c(rep(1, 5), 1, 3),
         booktabs = T,
         format.args = list(drop0trailing = T),
-        caption = "Estimate of redds in mainstem Methow, and any tributaries surveyed.") %>%
+        caption = "Estimate of redds in lower mainstem Methow, and any tributaries surveyed.") %>%
   kable_styling(bootstrap_options = c("striped", 
                                       "hover"),
                 latex_options = c("striped",
@@ -696,9 +695,9 @@ summ_redd_tab %>%
 
 ## Spawner Estimates
 
-Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref(tab:pit-tag-tab). 
+<!-- Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref(tab:pit-tag-tab)).  -->
 
-```{r pit-tag-tab}
+```{r pit-tag-tab, eval = F}
 met_tags %>% 
   group_by(Location, Sex, Group) %>% 
   summarise(`n tags` = n_distinct(TagID),
@@ -731,7 +730,7 @@ met_sex_tab %>%
 met_prop_origin %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Tags and proportion of each origin group, by conservation area.",
+        caption = "Tags and proportion of each origin group, by area.",
         col.names = c('Area', 'Origin Group', 'Total Tags', 'n Tags', 'Proportion', 'Prop Std. Error')) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
@@ -783,14 +782,17 @@ ps_mort_met %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
          ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
-  select(Origin, Escapement, Spawners, 
+  select(Origin,
+         `Initial Escp` = estimate,
+         Removals = rem,
+         Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se,
          CV = ps_mort_cv) %>%
   arrange(desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
+        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of initial and final escapement, removals, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -798,9 +800,6 @@ ps_mort_met %>%
 
 ```{r ps-mort-main}
 ps_mort_df %>%
-  # mutate(Area = recode(Area,
-  #                      'TUM_bb' = 'Above Tumwater',
-  #                      'Below_TUM' = 'Below Tumwater')) %>%
   mutate_at(vars(escp),
             list(~ if_else(. < 0, 0, .))) %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
@@ -808,14 +807,17 @@ ps_mort_df %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
          ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
-  select(Origin, Area, Escapement, Spawners, 
+  select(Origin, Area, 
+         `Initial Escp` = estimate,
+         Removals = rem,
+         Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se,
          CV = ps_mort_cv) %>%
   arrange(Area, desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Mainstem Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas below Winthrop.") %>%
+        caption = "Lower mainstem Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas below Winthrop.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -825,7 +827,7 @@ ps_mort_df %>%
 
 Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches. 
 
-Estimates of prespawn mortality were lower for the Methow overall compared to only the mainstem areas (TableS \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main)). This reflects our assumption that steelhead may overwinter in the mainstem Methow for a considerable period of time, but when they move into the tributaries they are ready to spawn and therefore PIT tag estimates of escapement to those tributaries are also estimates of spawners in those tributaries. 
+Estimates of prespawn mortality were lower for the Methow overall compared to only the mainstem areas (TableS \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main)). This reflects our assumption that steelhead may overwinter in the lower mainstem Methow for a considerable period of time, but when they move into the tributaries they are ready to spawn and therefore PIT tag estimates of escapement to those tributaries are also estimates of spawners in those tributaries. 
 
 
 <!-- The estimates of high prespawn mortality in the lower mainstem of the Methow for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches. -->

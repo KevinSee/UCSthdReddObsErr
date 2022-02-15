@@ -142,20 +142,11 @@ if(unique(year(redd_df$SurveyDate)) != yr) {
 # how many fish removed this year?
 data("removal_df")
 rem_df = removal_df %>%
-  filter(Year == yr) %>%
-  select(-Year)
+  filter(Subbasin == "Methow",
+         Year == yr) %>%
+  select(-Year,
+         -Subbasin)
 
-
-rem_df <- tibble(Source = c("Mainstem broodstock",
-                            "Methow hatchery",
-                            "WNFH hatchery",
-                            "Twisp weir")) %>%
-  crossing(Origin = c("Hatchery",
-                      "Natural")) %>%
-  mutate(rem = 0) %>%
-  mutate(Area = if_else(Source == "Twisp weir",
-                        "Twisp",
-                        "Mainstem Methow"))
 
 ```
 
@@ -249,7 +240,7 @@ mainstm_est_naive = redd_results %>%
   filter(str_detect(Reach,
                     "MRW[[:digit:]]",
                     negate = F)) %>%
-  mutate(Location = "Mainstem Methow") %>%
+  mutate(Location = "Lower Methow") %>%
   select(River, Index, Location, Reach, tot_feat, redd_est, redd_se) %>%
   group_by(River, Location, Index) %>%
   nest() %>%
@@ -260,7 +251,7 @@ mainstm_est_naive = redd_results %>%
                           })) %>%
   # get correlations between reaches within a stream
   left_join(redd_df %>%
-              mutate(Location = "Mainstem Methow") %>%
+              mutate(Location = "Lower Methow") %>%
               group_by(River, Location, Index) %>%
               nest()) %>%
   # filter(n_rchs > 1) %>%
@@ -323,65 +314,66 @@ mainstm_est = mainstm_est_naive %>%
 ```
 
 ```{r spawner-estimate}
-spwn_rch = redd_results %>%
+low_met_spwn <- redd_results %>%
   filter(River == 'Methow') %>%
-  mutate(Location = "Mainstem Methow") %>%
+  mutate(Location = "Lower Methow") %>%
   select(River, Location, Reach, Index, redd_est, redd_se) %>%
   left_join(met_sex_tab %>%
               select(Location, starts_with('fpr'))) %>%
-  left_join(met_origin_tab %>%
-              select(Location, h_prop:prop_se)) %>%
+  left_join(met_prop_origin) %>%
   rowwise() %>%
   mutate(Tot_Spawners = redd_est * fpr,
-         Hatchery = redd_est * fpr * h_prop,
-         Natural = redd_est * fpr * w_prop,
-         Hatchery_SE = ifelse(Tot_Spawners > 0, 
-                              deltamethod(~ x1 * x2 * x3,
-                                          mean = c(redd_est, fpr, h_prop),
-                                          cov = diag(c(redd_se, fpr_se, prop_se)^2)),
-                              NA),
-         Natural_SE = ifelse(Tot_Spawners > 0, 
-                              deltamethod(~ x1 * x2 * x3,
-                                          mean = c(redd_est, fpr, w_prop),
-                                          cov = diag(c(redd_se, fpr_se, prop_se)^2)),
-                              NA)) %>%
+         Org_Spawners = Tot_Spawners * prop,
+         Org_SE = if_else(Tot_Spawners > 0,
+                          deltamethod(~ x1 * x2 * x3,
+                                      mean = c(redd_est,
+                                               fpr,
+                                               prop),
+                                      cov = diag(c(redd_se,
+                                                   fpr_se,
+                                                   prop_se)^2)),
+                          NA_real_)) %>%
   ungroup() %>%
   mutate(Reach = factor(Reach,
                         levels = c(paste0('MRW', 1:8)))) %>%
-  select(Reach, Location, Type = Index, Hatchery:Natural_SE) %>%
-  mutate(Type = recode(Type,
-                       'Y' = 'Index',
-                       'N' = 'Non-Index')) %>%
-  bind_rows(trib_spawners %>%
-              select(-Spawners_SE) %>%
-              spread(Origin, Spawners) %>%
-              left_join(trib_spawners %>%
-                          select(-Spawners) %>%
-                          spread(Origin, Spawners_SE) %>%
-                          rename(Hatchery_SE = Hatchery,
-                                 Natural_SE = Natural)) %>%
-              mutate(Location = recode(Location,
-                                       'BVC' = 'Beaver',
-                                       'CRW' = 'Chewuch',
-                                       'GLC' = 'Gold',
-                                       'LBC' = 'Libby',
-                                       'MRW' = 'AboveWinthrop',
-                                       'MSH' = 'Methow Fish Hatchery',
-                                       'SCP' = 'Spring Creek',
-                                       'TWR' = 'Twisp')) %>%
-              mutate(Type = 'Trib')) %>%
-  mutate(Location = factor(Location, levels = c('Mainstem Methow',
-                                                'Gold', 
-                                                'Libby', 
-                                                'Beaver', 
-                                                'Spring Creek', 
-                                                'Chewuch', 
-                                                'Twisp', 
-                                                'AboveWinthrop', 
-                                                'Methow Fish Hatchery'))) %>%
-  arrange(Location, Reach, Type) %>%
-  mutate(h_cv = Hatchery_SE / Hatchery,
-         n_cv = Natural_SE / Natural)
+  select(Reach, Location, Type = Index, 
+         Origin,
+         starts_with("Org"))
+
+trib_spwn <- trib_spawners %>%
+  rename(Group = Origin) %>%
+  full_join(tibble(Group = "Hatchery",
+                   Origin = c("HOR-SN",
+                              "HOR-C",
+                              NA_character_)) %>%
+              bind_rows(tibble(Group = "Natural",
+                               Origin = "W"))) %>%
+  inner_join(met_prop_origin) %>%
+  mutate(Origin = factor(Origin,
+                         levels = levels(met_prop_origin$Origin))) %>%
+  group_by(Location, Group) %>%
+  mutate(tot_tags = sum(n_tags),
+         prop = n_tags / tot_tags,
+         prop_se = sqrt((prop * (1 - prop)) / tot_tags)) %>%
+  rowwise() %>%
+  mutate(Org_Spawners = Spawners * prop,
+         Org_SE = deltamethod(~ x1 * x2,
+                              mean = c(Spawners, prop),
+                              cov = diag(c(Spawners_SE,
+                                           prop_se)^2))) %>%
+  ungroup() %>%
+  mutate(Type = "Trib") %>%
+  select(Location, Type, 
+         Origin,
+         starts_with("Org"))
+
+spwn_rch <- low_met_spwn %>%
+  bind_rows(trib_spwn) %>%
+  mutate(Location = factor(Location,
+                           levels = levels(met_prop_origin$Location))) %>%
+  arrange(Location, Reach,
+          Type)
+
 ```
 
 
@@ -486,7 +478,7 @@ When summing reach-scale estimates to obtain estimates at the stream scale, an a
 Estimates of escapement to various tributaries in the Methow were made using a branching patch-occupancy model [@Waterhouse2020] based on PIT tag observations of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem). 
 <!-- Reaches below the PIT tag arrays in some tributaries were surveyed for redds, but we assumed there was no observer error in those reaches.  -->
 
-To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the mainstem Methow, but not into tributaries. FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
+To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower mainstem Methow, but not into tributaries (between PTAGIS sites LMR and MRW). FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the lower mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
 <!-- For reaches in tributaries below the tributary PIT tag array, FpR and proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary. -->
 
 ## Prespawn Mortality
@@ -512,27 +504,25 @@ If any group had a higher estimates of spawners compared to escapement, we fixed
 
 ```{r}
 ps_mort_df = escp_met %>%
-  filter(Area != 'Met_all') %>%
+  filter(Area == "Lower Methow") %>%
   left_join(rem_df %>%
-              filter(Area != 'Harvest') %>%
+              # filter(Area != 'Harvest') %>%
               select(-Source)) %>%
   mutate(across(rem,
                 replace_na,
                 0)) %>%
   mutate(escp = estimate - rem) %>%
-  left_join(spwn_rch %>%
-              select(-ends_with('cv')) %>%
-              gather(type, value, Hatchery:Natural_SE) %>%
-              mutate(Origin = str_remove(type, '_SE'),
-                     type = if_else(grepl("_SE$", type),
-                                    "spwn_se",
-                                    "spwn_est")) %>%
-              spread(type, value) %>%
-              filter(Location %in% c('Mainstem Methow')) %>%
-              group_by(Area = Location,
-                       Origin) %>%
-              summarise(spwn_est = sum(spwn_est),
-                        spwn_se = sqrt(sum(spwn_se^2, na.rm = T)))) %>%
+  left_join(low_met_spwn %>%
+              mutate(Origin = fct_recode(Origin,
+                                         "Hatchery" = "HOR-SN",
+                                         "Hatchery" = "HOR-C",
+                                         "Natural" = "W")) %>%
+              group_by(Location, Origin) %>%
+              summarize(spwn_est = sum(Org_Spawners),
+                        spwn_se = sqrt(sum(Org_SE^2)),
+                        .groups = "drop"),
+            by = c("Area" = "Location",
+                   "Origin")) %>%
   mutate(ps_mort = (escp - spwn_est) / escp) %>%
   rowwise() %>%
   mutate(ps_mort_se = deltamethod(~ (x1 - x2) / x1,
@@ -545,27 +535,30 @@ ps_mort_df = escp_met %>%
 ```{r}
 ps_mort_met = escp_met %>%
   filter(Area == 'Met_all') %>%
-  # left_join(rem_df %>%
-  #             group_by(Origin) %>%
-  #             summarize(across(rem,
-  #                              sum),
-  #                       .groups = "drop")) %>%
-  # mutate(across(rem,
-  #               replace_na,
-  #               0)) %>%
-  mutate(rem = 0) %>%
-  mutate(escp = estimate - rem) %>%
-  left_join(spwn_rch %>%
-              select(-ends_with('cv')) %>%
-              gather(type, value, Hatchery:Natural_SE) %>%
-              mutate(Origin = str_remove(type, '_SE'),
-                     type = if_else(grepl("_SE$", type),
-                                    "spwn_se",
-                                    "spwn_est")) %>%
-              spread(type, value) %>%
+  left_join(rem_df %>%
               group_by(Origin) %>%
-              summarise(spwn_est = sum(spwn_est),
-                        spwn_se = sqrt(sum(spwn_se^2, na.rm = T)))) %>%
+              summarize(across(rem,
+                               sum),
+                        .groups = "drop")) %>%
+  mutate(across(rem,
+                replace_na,
+                0)) %>%
+  # mutate(rem = 0) %>%
+  mutate(escp = estimate - rem) %>%
+  left_join(low_met_spwn %>%
+              mutate(Origin = fct_recode(Origin,
+                                         "Hatchery" = "HOR-SN",
+                                         "Hatchery" = "HOR-C",
+                                         "Natural" = "W")) %>%
+              group_by(Location, Origin) %>%
+              summarize(Spawners = sum(Org_Spawners),
+                        Spawners_SE = sqrt(sum(Org_SE^2)),
+                        .groups = "drop") %>%
+              bind_rows(trib_spawners) %>%
+              group_by(Origin) %>%
+              summarize(spwn_est = sum(Spawners),
+                        spwn_se = sqrt(sum(Spawners_SE^2)),
+                        .groups = "drop")) %>%
   mutate(ps_mort = (escp - spwn_est) / escp) %>%
   rowwise() %>%
   mutate(ps_mort_se = deltamethod(~ (x1 - x2) / x1,
@@ -644,9 +637,9 @@ summ_redd_tab = redd_results %>%
                                        "^MRW[[:digit:]]",
                                        negate = T),
                             "Tributary",
-                            "Mainstem Methow"),
+                            "Lower Methow"),
          Location = factor(Location,
-                           levels = c("Mainstem Methow",
+                           levels = c("Lower Methow",
                                       "Tributary"))) %>%
   mutate(across(Reach,
                 as.factor)) %>%
@@ -679,7 +672,7 @@ summ_redd_tab %>%
   kable(digits = c(rep(1, 5), 1, 3),
         booktabs = T,
         format.args = list(drop0trailing = T),
-        caption = "Estimate of redds in mainstem Methow, and any tributaries surveyed.") %>%
+        caption = "Estimate of redds in lower mainstem Methow, and any tributaries surveyed.") %>%
   kable_styling(bootstrap_options = c("striped", 
                                       "hover"),
                 latex_options = c("striped",
@@ -693,15 +686,11 @@ summ_redd_tab %>%
 
 ## Spawner Estimates
 
-Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref(tab:pit-tag-tab). 
+<!-- Demographic data about sex and origin were derived from the PIT tags detected within each area (Table \@ref(tab:pit-tag-tab)).  -->
 
-```{r pit-tag-tab}
+```{r pit-tag-tab, eval = F}
 met_tags %>% 
-  mutate(Location = fct_relabel(Location, 
-                                str_replace_all,
-                                pattern = "_",
-                                replacement = " ")) %>%
-  group_by(Location, Sex, Origin) %>% 
+  group_by(Location, Sex, Group) %>% 
   summarise(`n tags` = n_distinct(TagID),
             .groups = "drop") %>% 
   kable(booktabs = T,
@@ -710,51 +699,66 @@ met_tags %>%
                 latex_options = "striped")
 ```
 
-Parameter estimates for fish / redd and proportion hatchery based on this PIT tag data are shown in Table \@ref(tab:fpr-hatch-prop).
+Parameter estimates for fish / redd in the lower Methow are shown in Table \@ref(tab:fpr-prop). For the four main areas of the Methow, the number of wild, HOR-SN (hatchery origin safety net) and HOR-C (hatchery origin conservation) tags and their proporitions are shown in Table \@ref(tab:hatch-prop). 
 
-```{r fpr-hatch-prop}
+```{r fpr-prop}
 met_sex_tab %>%
-  select(Location, fpr, fpr_se) %>%
-  left_join(met_origin_tab %>%
-              select(Location, h_prop, prop_se)) %>%
-  filter(Location != 'Tribs_above_MRC') %>%
-  mutate(Location = recode(Location, 
-                           'AboveWinthrop' = 'Above Winthrop')) %>%
+  filter(Location == "Lower Methow") %>%
+  select(Area = Location, 
+         `F tags` = f_tags,
+         `M tags` = m_tags,
+         `Fish / redd` = fpr, 
+         `FpR Std. Error` = fpr_se) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Fish per redd and hatchery / natural origin proportion estimates.",
-        col.names = c('Area', 'Fish / redd', 'FpR Std. Error', 'Prop. Hatchery', 'Prop Std. Error')) %>%
+        caption = "Fish per redd estimates.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
+
+```
+
+```{r hatch-prop}
+met_prop_origin %>%
+  kable(digits = 3,
+        booktabs = T,
+        caption = "Tags and proportion of each origin group, by area.",
+        col.names = c('Area', 'Origin Group', 'Total Tags', 'n Tags', 'Proportion', 'Prop Std. Error')) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
 
-Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the mainstem areas, Table \@ref(tab:spawn-est) shows all of them, broken down by area and origin.
+Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the lower mainstem Methow, Table \@ref(tab:spawn-est) shows all of them, broken down by area and origin.
 
 ```{r spawn-est}
 spwn_rch %>%
-  mutate(Area = if_else(is.na(Reach),
-                        as.character(Location),
-                        as.character(Reach))) %>%
-  mutate_at(vars(Hatchery, Natural),
-            list(round_half_up)) %>%
-  bind_rows(summarise(.,
-                      Hatchery = sum(Hatchery),
-                      Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
-                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
-              mutate(h_cv = Hatchery_SE / Hatchery,
-                     n_cv = Natural_SE / Natural,
-                     Area = "Total")) %>%
-  mutate(h_prnt = paste0(Hatchery, " (", if_else(is.na(h_cv), '-', as.character(round(h_cv, 2))), ")"),
-         n_prnt = paste0(Natural, " (", if_else(is.na(n_cv), '-', as.character(round(n_cv, 2))), ")")) %>%
-  select(Area, Type, Natural = n_prnt, Hatchery = h_prnt) %>%
+  mutate(across(Org_Spawners,
+                round_half_up)) %>%
+  group_by(Location, Origin) %>%
+  summarize(Org_Spawners = sum(Org_Spawners),
+            Org_SE = sqrt(sum(Org_SE^2)),
+            .groups = "drop") %>%
+  bind_rows(group_by(., Origin) %>%
+              summarize(Org_Spawners = sum(Org_Spawners),
+                        Org_SE = sqrt(sum(Org_SE^2)),
+            .groups = "drop") %>%
+              mutate(Location = "Total")) %>%
+  mutate(prnt_val = paste0(round_half_up(Org_Spawners),
+                           " (",
+                           if_else(Org_SE > 0,
+                                   as.character(round(Org_SE / Org_Spawners, 2)),
+                                   "-"),
+                           ")")) %>%
+  select(-starts_with("Org")) %>%
+  pivot_wider(names_from = Origin,
+              values_from = prnt_val,
+              names_sort = T) %>%
   kable(caption = "Estimates (CV) of spawners by area and origin.",
         booktabs = T) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped") %>%
-  row_spec(row = nrow(spwn_rch),
+  row_spec(row = nlevels(spwn_rch$Location),
            hline_after = T) %>%
-  row_spec(row = nrow(spwn_rch) + 1, 
+  row_spec(row = nlevels(spwn_rch$Location) + 1, 
            bold = T)
 ```
 
@@ -769,14 +773,17 @@ ps_mort_met %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
          ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
-  select(Origin, Escapement, Spawners, 
+  select(Origin,
+         `Initial Escp` = estimate,
+         Removals = rem,
+         Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se,
          CV = ps_mort_cv) %>%
   arrange(desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
+        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of initial and final escapement, removals, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -784,9 +791,6 @@ ps_mort_met %>%
 
 ```{r ps-mort-main}
 ps_mort_df %>%
-  # mutate(Area = recode(Area,
-  #                      'TUM_bb' = 'Above Tumwater',
-  #                      'Below_TUM' = 'Below Tumwater')) %>%
   mutate_at(vars(escp),
             list(~ if_else(. < 0, 0, .))) %>%
   mutate(Escapement = paste0(round_half_up(escp), ' (', round_half_up(se), ')'),
@@ -794,14 +798,17 @@ ps_mort_df %>%
   mutate(ps_mort = if_else(escp < spwn_est, 0, ps_mort),
          ps_mort_se = if_else(escp < spwn_est, NA_real_, ps_mort_se),
          ps_mort_cv = ps_mort_se / ps_mort) %>%
-  select(Origin, Area, Escapement, Spawners, 
+  select(Origin, Area, 
+         `Initial Escp` = estimate,
+         Removals = rem,
+         Escapement, Spawners, 
          `Prespawn Mortality` = ps_mort, 
          SE = ps_mort_se,
          CV = ps_mort_cv) %>%
   arrange(Area, desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Mainstem Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas below Winthrop.") %>%
+        caption = "Lower mainstem Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and the standard error of this rate, separated by origin and mainstem areas below Winthrop.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -811,12 +818,12 @@ ps_mort_df %>%
 
 Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches. 
 
-Estimates of prespawn mortality were lower for the Methow overall compared to only the mainstem areas (TableS \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main)). This reflects our assumption that steelhead may overwinter in the mainstem Methow for a considerable period of time, but when they move into the tributaries they are ready to spawn and therefore PIT tag estimates of escapement to those tributaries are also estimates of spawners in those tributaries. 
+<!-- Estimates of prespawn mortality were lower for the Methow overall compared to only the mainstem areas (TableS \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main)). This reflects our assumption that steelhead may overwinter in the lower mainstem Methow for a considerable period of time, but when they move into the tributaries they are ready to spawn and therefore PIT tag estimates of escapement to those tributaries are also estimates of spawners in those tributaries.  -->
 
 
 <!-- The estimates of high prespawn mortality in the lower mainstem of the Methow for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches. -->
 
-<!-- Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In some cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none.  -->
+Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In some cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none. In addition, in 2021 because of the very skewed sex ratio many of the male steelhead caught in the lower mainstem were live spawned and then returned to the river. This could mean that the escapement estimates in Tables \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main) should perhaps be a bit higher, even as high as the estimated number of spawners. 
 
 
 # Acknowledgements
