@@ -79,6 +79,36 @@ removal_df %<>%
   bind_rows(removal_2021) %>%
   distinct()
 
+
+#-----------------------------------------------------------------
+# add removals from the Methow in 2021
+rem_met_2021 <- read_excel(here("analysis/data/raw_data",
+                                "Net Methow removal.xlsx"),
+                           1,
+                           skip = 3) %>%
+  select(Source = Location,
+         Hatchery = HOR,
+         Natural = NOR) %>%
+  filter(!is.na(Source),
+         !is.na(Hatchery)) %>%
+  mutate(Area = recode(Source,
+                       "Methow mainstem" = "Lower Methow",
+                       "Twisp weir" = "Twisp",
+                       "WNFH hatchery trap" = "Methow Fish Hatchery")) %>%
+  pivot_longer(cols = c(Hatchery,
+                        Natural),
+               names_to = "Origin",
+               values_to = "rem") %>%
+  add_column(Year = 2021,
+             .before = 0)
+
+removal_df %<>%
+  add_column(Subbasin = "Wenatchee",
+             .before = 0) %>%
+  bind_rows(rem_met_2021 %>%
+              add_column(Subbasin = "Methow",
+                         .before = 0))
+
 #-----------------------------------------------------------------
 # save for use in package
 usethis::use_data(removal_df,

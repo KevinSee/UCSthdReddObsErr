@@ -142,8 +142,10 @@ if(unique(year(redd_df$SurveyDate)) != yr) {
 # how many fish removed this year?
 data("removal_df")
 rem_df = removal_df %>%
-  filter(Year == yr) %>%
-  select(-Year)
+  filter(Subbasin == "Wenatchee",
+         Year == yr) %>%
+  select(-Year,
+         -Subbasin)
 ```
 
 ```{r calc-total-redds}

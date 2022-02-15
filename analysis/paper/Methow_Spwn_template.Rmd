@@ -90,6 +90,7 @@ library(lubridate)
 library(janitor)
 library(magrittr)
 library(msm)
+library(readxl)
 library(knitr)
 library(kableExtra)
 library(english)
@@ -142,20 +143,11 @@ if(unique(year(redd_df$SurveyDate)) != yr) {
 # how many fish removed this year?
 data("removal_df")
 rem_df = removal_df %>%
-  filter(Year == yr) %>%
-  select(-Year)
+  filter(Subbasin == "Methow",
+         Year == yr) %>%
+  select(-Year,
+         -Subbasin)
 
-
-rem_df <- tibble(Source = c("Mainstem broodstock",
-                            "Methow hatchery",
-                            "WNFH hatchery",
-                            "Twisp weir")) %>%
-  crossing(Origin = c("Hatchery",
-                      "Natural")) %>%
-  mutate(rem = 0) %>%
-  mutate(Area = if_else(Source == "Twisp weir",
-                        "Twisp",
-                        "Mainstem Methow"))
 
 ```
 
@@ -323,65 +315,75 @@ mainstm_est = mainstm_est_naive %>%
 ```
 
 ```{r spawner-estimate}
-spwn_rch = redd_results %>%
+low_met_spwn <- redd_results %>%
   filter(River == 'Methow') %>%
-  mutate(Location = "Mainstem Methow") %>%
+  mutate(Location = "Lower Methow") %>%
   select(River, Location, Reach, Index, redd_est, redd_se) %>%
   left_join(met_sex_tab %>%
               select(Location, starts_with('fpr'))) %>%
-  left_join(met_origin_tab %>%
-              select(Location, h_prop:prop_se)) %>%
+  left_join(met_prop_origin) %>%
   rowwise() %>%
   mutate(Tot_Spawners = redd_est * fpr,
-         Hatchery = redd_est * fpr * h_prop,
-         Natural = redd_est * fpr * w_prop,
-         Hatchery_SE = ifelse(Tot_Spawners > 0, 
-                              deltamethod(~ x1 * x2 * x3,
-                                          mean = c(redd_est, fpr, h_prop),
-                                          cov = diag(c(redd_se, fpr_se, prop_se)^2)),
-                              NA),
-         Natural_SE = ifelse(Tot_Spawners > 0, 
-                              deltamethod(~ x1 * x2 * x3,
-                                          mean = c(redd_est, fpr, w_prop),
-                                          cov = diag(c(redd_se, fpr_se, prop_se)^2)),
-                              NA)) %>%
+         Org_Spawners = Tot_Spawners * prop,
+         Org_SE = if_else(Tot_Spawners > 0,
+                          deltamethod(~ x1 * x2 * x3,
+                                      mean = c(redd_est,
+                                               fpr,
+                                               prop),
+                                      cov = diag(c(redd_se,
+                                                   fpr_se,
+                                                   prop_se)^2)),
+                          NA_real_)) %>%
   ungroup() %>%
   mutate(Reach = factor(Reach,
                         levels = c(paste0('MRW', 1:8)))) %>%
-  select(Reach, Location, Type = Index, Hatchery:Natural_SE) %>%
-  mutate(Type = recode(Type,
-                       'Y' = 'Index',
-                       'N' = 'Non-Index')) %>%
-  bind_rows(trib_spawners %>%
-              select(-Spawners_SE) %>%
-              spread(Origin, Spawners) %>%
-              left_join(trib_spawners %>%
-                          select(-Spawners) %>%
-                          spread(Origin, Spawners_SE) %>%
-                          rename(Hatchery_SE = Hatchery,
-                                 Natural_SE = Natural)) %>%
-              mutate(Location = recode(Location,
-                                       'BVC' = 'Beaver',
-                                       'CRW' = 'Chewuch',
-                                       'GLC' = 'Gold',
-                                       'LBC' = 'Libby',
-                                       'MRW' = 'AboveWinthrop',
-                                       'MSH' = 'Methow Fish Hatchery',
-                                       'SCP' = 'Spring Creek',
-                                       'TWR' = 'Twisp')) %>%
-              mutate(Type = 'Trib')) %>%
-  mutate(Location = factor(Location, levels = c('Mainstem Methow',
-                                                'Gold', 
-                                                'Libby', 
-                                                'Beaver', 
-                                                'Spring Creek', 
-                                                'Chewuch', 
-                                                'Twisp', 
-                                                'AboveWinthrop', 
-                                                'Methow Fish Hatchery'))) %>%
-  arrange(Location, Reach, Type) %>%
-  mutate(h_cv = Hatchery_SE / Hatchery,
-         n_cv = Natural_SE / Natural)
+  select(Reach, Location, Type = Index, 
+         Origin,
+         starts_with("Org"))
+
+trib_spwn <- trib_spawners %>%
+  rename(Group = Origin) %>%
+  full_join(tibble(Group = "Hatchery",
+                   Origin = c("HOR-SN",
+                              "HOR-C",
+                              NA_character_)) %>%
+              bind_rows(tibble(Group = "Natural",
+                               Origin = "W"))) %>%
+  inner_join(met_prop_origin) %>%
+  mutate(Origin = factor(Origin,
+                         levels = levels(met_prop_origin$Origin))) %>%
+  group_by(Location, Group) %>%
+  mutate(tot_tags = sum(n_tags),
+         prop = n_tags / tot_tags,
+         prop_se = sqrt((prop * (1 - prop)) / tot_tags)) %>%
+  rowwise() %>%
+  mutate(Org_Spawners = Spawners * prop,
+         Org_SE = deltamethod(~ x1 * x2,
+                              mean = c(Spawners, prop),
+                              cov = diag(c(Spawners_SE,
+                                           prop_se)^2))) %>%
+  ungroup() %>%
+  mutate(Type = "Trib") %>%
+  select(Location, Type, 
+         Origin,
+         starts_with("Org"))
+
+spwn_rch <- low_met_spwn %>%
+  bind_rows(trib_spwn) %>%
+  mutate(Location = factor(Location,
+                           levels = levels(met_prop_origin$Location))) %>%
+  arrange(Location, Reach,
+          Type)
+
+spwn_rch %>%
+  mutate(prnt_val = paste0(round_half_up(Org_Spawners),
+                           " (",
+                           round(Org_SE, 2),
+                           ")")) %>%
+  select(-starts_with("Org")) %>%
+  pivot_wider(names_from = Origin,
+              values_from = prnt_val,
+              names_sort = T)
 ```
 
 
@@ -512,27 +514,25 @@ If any group had a higher estimates of spawners compared to escapement, we fixed
 
 ```{r}
 ps_mort_df = escp_met %>%
-  filter(Area != 'Met_all') %>%
+  filter(Area == "Lower Methow") %>%
   left_join(rem_df %>%
-              filter(Area != 'Harvest') %>%
+              # filter(Area != 'Harvest') %>%
               select(-Source)) %>%
   mutate(across(rem,
                 replace_na,
                 0)) %>%
   mutate(escp = estimate - rem) %>%
-  left_join(spwn_rch %>%
-              select(-ends_with('cv')) %>%
-              gather(type, value, Hatchery:Natural_SE) %>%
-              mutate(Origin = str_remove(type, '_SE'),
-                     type = if_else(grepl("_SE$", type),
-                                    "spwn_se",
-                                    "spwn_est")) %>%
-              spread(type, value) %>%
-              filter(Location %in% c('Mainstem Methow')) %>%
-              group_by(Area = Location,
-                       Origin) %>%
-              summarise(spwn_est = sum(spwn_est),
-                        spwn_se = sqrt(sum(spwn_se^2, na.rm = T)))) %>%
+  left_join(low_met_spwn %>%
+              mutate(Origin = fct_recode(Origin,
+                                         "Hatchery" = "HOR-SN",
+                                         "Hatchery" = "HOR-C",
+                                         "Natural" = "W")) %>%
+              group_by(Location, Origin) %>%
+              summarize(spwn_est = sum(Org_Spawners),
+                        spwn_se = sqrt(sum(Org_SE^2)),
+                        .groups = "drop"),
+            by = c("Area" = "Location",
+                   "Origin")) %>%
   mutate(ps_mort = (escp - spwn_est) / escp) %>%
   rowwise() %>%
   mutate(ps_mort_se = deltamethod(~ (x1 - x2) / x1,
@@ -545,27 +545,30 @@ ps_mort_df = escp_met %>%
 ```{r}
 ps_mort_met = escp_met %>%
   filter(Area == 'Met_all') %>%
-  # left_join(rem_df %>%
-  #             group_by(Origin) %>%
-  #             summarize(across(rem,
-  #                              sum),
-  #                       .groups = "drop")) %>%
-  # mutate(across(rem,
-  #               replace_na,
-  #               0)) %>%
-  mutate(rem = 0) %>%
-  mutate(escp = estimate - rem) %>%
-  left_join(spwn_rch %>%
-              select(-ends_with('cv')) %>%
-              gather(type, value, Hatchery:Natural_SE) %>%
-              mutate(Origin = str_remove(type, '_SE'),
-                     type = if_else(grepl("_SE$", type),
-                                    "spwn_se",
-                                    "spwn_est")) %>%
-              spread(type, value) %>%
+  left_join(rem_df %>%
               group_by(Origin) %>%
-              summarise(spwn_est = sum(spwn_est),
-                        spwn_se = sqrt(sum(spwn_se^2, na.rm = T)))) %>%
+              summarize(across(rem,
+                               sum),
+                        .groups = "drop")) %>%
+  mutate(across(rem,
+                replace_na,
+                0)) %>%
+  # mutate(rem = 0) %>%
+  mutate(escp = estimate - rem) %>%
+  left_join(low_met_spwn %>%
+              mutate(Origin = fct_recode(Origin,
+                                         "Hatchery" = "HOR-SN",
+                                         "Hatchery" = "HOR-C",
+                                         "Natural" = "W")) %>%
+              group_by(Location, Origin) %>%
+              summarize(Spawners = sum(Org_Spawners),
+                        Spawners_SE = sqrt(sum(Org_SE^2)),
+                        .groups = "drop") %>%
+              bind_rows(trib_spawners) %>%
+              group_by(Origin) %>%
+              summarize(spwn_est = sum(Spawners),
+                        spwn_se = sqrt(sum(Spawners_SE^2)),
+                        .groups = "drop")) %>%
   mutate(ps_mort = (escp - spwn_est) / escp) %>%
   rowwise() %>%
   mutate(ps_mort_se = deltamethod(~ (x1 - x2) / x1,
@@ -697,11 +700,7 @@ Demographic data about sex and origin were derived from the PIT tags detected wi
 
 ```{r pit-tag-tab}
 met_tags %>% 
-  mutate(Location = fct_relabel(Location, 
-                                str_replace_all,
-                                pattern = "_",
-                                replacement = " ")) %>%
-  group_by(Location, Sex, Origin) %>% 
+  group_by(Location, Sex, Group) %>% 
   summarise(`n tags` = n_distinct(TagID),
             .groups = "drop") %>% 
   kable(booktabs = T,
@@ -710,51 +709,66 @@ met_tags %>%
                 latex_options = "striped")
 ```
 
-Parameter estimates for fish / redd and proportion hatchery based on this PIT tag data are shown in Table \@ref(tab:fpr-hatch-prop).
+Parameter estimates for fish / redd in the lower Methow are shown in Table \@ref(tab:fpr-prop). For the four main areas of the Methow, the number of wild, HOR-SN (hatchery origin safety net) and HOR-C (hatchery origin conservation) tags and their proporitions are shown in Table \@ref(tab:hatch-prop). 
 
-```{r fpr-hatch-prop}
+```{r fpr-prop}
 met_sex_tab %>%
-  select(Location, fpr, fpr_se) %>%
-  left_join(met_origin_tab %>%
-              select(Location, h_prop, prop_se)) %>%
-  filter(Location != 'Tribs_above_MRC') %>%
-  mutate(Location = recode(Location, 
-                           'AboveWinthrop' = 'Above Winthrop')) %>%
+  filter(Location == "Lower Methow") %>%
+  select(Area = Location, 
+         `F tags` = f_tags,
+         `M tags` = m_tags,
+         `Fish / redd` = fpr, 
+         `FpR Std. Error` = fpr_se) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Fish per redd and hatchery / natural origin proportion estimates.",
-        col.names = c('Area', 'Fish / redd', 'FpR Std. Error', 'Prop. Hatchery', 'Prop Std. Error')) %>%
+        caption = "Fish per redd estimates.") %>%
+  kable_styling(bootstrap_options = c("striped", "hover"),
+                latex_options = "striped")
+
+```
+
+```{r hatch-prop}
+met_prop_origin %>%
+  kable(digits = 3,
+        booktabs = T,
+        caption = "Tags and proportion of each origin group, by conservation area.",
+        col.names = c('Area', 'Origin Group', 'Total Tags', 'n Tags', 'Proportion', 'Prop Std. Error')) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
 
-Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the mainstem areas, Table \@ref(tab:spawn-est) shows all of them, broken down by area and origin.
+Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the lower mainstem Methow, Table \@ref(tab:spawn-est) shows all of them, broken down by area and origin.
 
 ```{r spawn-est}
 spwn_rch %>%
-  mutate(Area = if_else(is.na(Reach),
-                        as.character(Location),
-                        as.character(Reach))) %>%
-  mutate_at(vars(Hatchery, Natural),
-            list(round_half_up)) %>%
-  bind_rows(summarise(.,
-                      Hatchery = sum(Hatchery),
-                      Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
-                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
-              mutate(h_cv = Hatchery_SE / Hatchery,
-                     n_cv = Natural_SE / Natural,
-                     Area = "Total")) %>%
-  mutate(h_prnt = paste0(Hatchery, " (", if_else(is.na(h_cv), '-', as.character(round(h_cv, 2))), ")"),
-         n_prnt = paste0(Natural, " (", if_else(is.na(n_cv), '-', as.character(round(n_cv, 2))), ")")) %>%
-  select(Area, Type, Natural = n_prnt, Hatchery = h_prnt) %>%
+  mutate(across(Org_Spawners,
+                round_half_up)) %>%
+  group_by(Location, Origin) %>%
+  summarize(Org_Spawners = sum(Org_Spawners),
+            Org_SE = sqrt(sum(Org_SE^2)),
+            .groups = "drop") %>%
+  bind_rows(group_by(., Origin) %>%
+              summarize(Org_Spawners = sum(Org_Spawners),
+                        Org_SE = sqrt(sum(Org_SE^2)),
+            .groups = "drop") %>%
+              mutate(Location = "Total")) %>%
+  mutate(prnt_val = paste0(round_half_up(Org_Spawners),
+                           " (",
+                           if_else(Org_SE > 0,
+                                   as.character(round(Org_SE / Org_Spawners, 2)),
+                                   "-"),
+                           ")")) %>%
+  select(-starts_with("Org")) %>%
+  pivot_wider(names_from = Origin,
+              values_from = prnt_val,
+              names_sort = T) %>%
   kable(caption = "Estimates (CV) of spawners by area and origin.",
         booktabs = T) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped") %>%
-  row_spec(row = nrow(spwn_rch),
+  row_spec(row = nlevels(spwn_rch$Location),
            hline_after = T) %>%
-  row_spec(row = nrow(spwn_rch) + 1, 
+  row_spec(row = nlevels(spwn_rch$Location) + 1, 
            bold = T)
 ```
 
