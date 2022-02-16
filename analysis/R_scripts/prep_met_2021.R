@@ -130,20 +130,20 @@ met_tags %<>%
                                  "HOR-SN",
                                  if_else(!is.na(CWT),
                                          "HOR-C",
-                                         NA_character_)))) %>%
+                                         "HOR-C")))) %>%
   mutate(Group = factor(Group,
                         levels = c("W",
                                    "HOR-SN",
                                    "HOR-C")))
 
-# filter out some areas not needed for the report
-met_tags %<>%
-  filter(Location %in% c("Lower Methow",
-                         "Upper Methow",
-                         "Chewuch",
-                         "Twisp")) %>%
-  mutate(across(Location,
-                fct_drop))
+# # filter out some areas not needed for the report
+# met_tags %<>%
+#   filter(Location %in% c("Lower Methow",
+#                          "Upper Methow",
+#                          "Chewuch",
+#                          "Twisp")) %>%
+#   mutate(across(Location,
+#                 fct_drop))
 
 #-------------------------------------------------------
 # if calculating a different fish / redd in each area
@@ -218,29 +218,6 @@ max_date = max(est_dates) %>%
 all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/UC_Steelhead_', yr, '_', max_date, '.xlsx'),
                       'All Escapement')
 
-# mrk_grp_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/UC_Steelhead_', yr, '_', max_date, '.xlsx'),
-#                           "Mark Group Site Escapement")
-#
-# mrk_grp_escp %>%
-#   mutate(Area = if_else(location %in% c("TWR", "TWISPW"),
-#                         "Twisp",
-#                         if_else(location %in% c("CRW", "CRU"),
-#                                 "Chewuch",
-#                                 if_else(location %in% c("LMR_bb", "MRC_bb"),
-#                                         "Lower Methow",
-#                                         if_else(location %in% c("MRW", "WFC"),
-#                                                 "Upper Methow",
-#                                                 NA_character_))))) %>%
-#   filter(!is.na(Area)) %>%
-#   mutate(Group = recode(mark_grp,
-#                         "AD_CWT" = "HOR-C",
-#                         "AD_noCWT" = "HOR-SN",
-#                         "AI_CWT" = "HOR-C",
-#                         "AI_noCWT" = NA_character_,
-#                         "Wild" = "W")) %>%
-#   group_by(Area, Group) %>%
-#   summarize(Org_Spawners = sum(estimate),
-#             Org_SE = sqrt(sum(se^2)))
 
 #-----------------------------------------------------------------
 # read in redd counts below PIT tag arrays
@@ -252,10 +229,12 @@ all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/UC_Ste
 #             redd_se = 0,
 #             .groups = "drop")
 
-
-
-trib_spawners = all_escp %>%
-  filter(location %in% c("GLC",
+# pull out specific escapement estimates for the Methow
+escp_met = all_escp %>%
+  filter(location %in% c('LMR',
+                         'LMR_bb',
+                         'MRC_bb',
+                         "GLC",
                          "LBC",
                          "MSH",
                          "MRW",
@@ -263,31 +242,18 @@ trib_spawners = all_escp %>%
                          "CRW",
                          "SCP",
                          "BVC")) %>%
-  mutate(location = recode(location,
-                           "GLC" = "Gold",
-                           "LBC" = "Libby",
-                           "MSH" = "Methow Fish Hatchery",
-                           "MRW" = "Upper Methow",
-                           "TWR" = "Twisp",
-                           "CRW" = "Chewuch",
-                           "BVC" = "Beaver")) %>%
-  select(Origin = origin,
-         Location = location,
-         Spawners = estimate,
-         Spawners_SE = se) %>%
-  mutate(Origin = recode(Origin,
-                         "W" = "Natural",
-                         "H" = "Hatchery")) %>%
-  arrange(Location, Origin)
-
-escp_met = all_escp %>%
-  filter(location %in% c('LMR',
-                         'LMR_bb',
-                         'MRC_bb')) %>%
   mutate(Area = recode(location,
-                       'LMR' = 'Met_all',
+                       'LMR' = 'Methow_all',
                        'LMR_bb' = 'Lower Methow',
-                       'MRC_bb' = 'Lower Methow')) %>%
+                       'MRC_bb' = 'Lower Methow',
+                       "GLC" = "Gold",
+                       "LBC" = "Libby",
+                       "MSH" = "Methow Fish Hatchery",
+                       "MRW" = "Upper Methow",
+                       "TWR" = "Twisp",
+                       "CRW" = "Chewuch",
+                       "SCP" = "Spring Creek",
+                       "BVC" = "Beaver")) %>%
   mutate(Origin = recode(origin,
                          "W" = "Natural",
                          "H" = "Hatchery")) %>%
@@ -297,6 +263,9 @@ escp_met = all_escp %>%
             se = sqrt(sum(se^2)),
             .groups = "drop")
 
+
+
+
 #-----------------------------------------------------------------
 # save
 save(redd_df,
@@ -305,7 +274,6 @@ save(redd_df,
      met_sex_tab,
      met_prop_origin,
      met_origin_tab,
-     trib_spawners,
      escp_met,
      file = here('analysis/data/derived_data',
                  paste0('met_', yr, '.rda')))

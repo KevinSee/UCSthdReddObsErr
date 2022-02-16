@@ -340,7 +340,11 @@ low_met_spwn <- redd_results %>%
          Origin,
          starts_with("Org"))
 
-trib_spwn <- trib_spawners %>%
+trib_spwn <- escp_met %>%
+  filter(!Area %in% c("Methow_all",
+                      "Lower Methow",
+                      "Methow Fish Hatchery",
+                      "Spring Creek")) %>%
   rename(Group = Origin) %>%
   full_join(tibble(Group = "Hatchery",
                    Origin = c("HOR-SN",
@@ -348,18 +352,20 @@ trib_spwn <- trib_spawners %>%
                               NA_character_)) %>%
               bind_rows(tibble(Group = "Natural",
                                Origin = "W"))) %>%
-  inner_join(met_prop_origin) %>%
+  inner_join(met_prop_origin,
+             by = c("Area" = "Location",
+                    "Origin")) %>%
   mutate(Origin = factor(Origin,
                          levels = levels(met_prop_origin$Origin))) %>%
-  group_by(Location, Group) %>%
+  group_by(Location = Area, Group) %>%
   mutate(tot_tags = sum(n_tags),
          prop = n_tags / tot_tags,
          prop_se = sqrt((prop * (1 - prop)) / tot_tags)) %>%
   rowwise() %>%
-  mutate(Org_Spawners = Spawners * prop,
+  mutate(Org_Spawners = estimate * prop,
          Org_SE = deltamethod(~ x1 * x2,
-                              mean = c(Spawners, prop),
-                              cov = diag(c(Spawners_SE,
+                              mean = c(estimate, prop),
+                              cov = diag(c(se,
                                            prop_se)^2))) %>%
   ungroup() %>%
   mutate(Type = "Trib") %>%
@@ -371,9 +377,20 @@ spwn_rch <- low_met_spwn %>%
   bind_rows(trib_spwn) %>%
   mutate(Location = factor(Location,
                            levels = levels(met_prop_origin$Location))) %>%
+  mutate(across(Location,
+                fct_drop)) %>%
   arrange(Location, Reach,
           Type)
 
+# spwn_rch %>%
+#   mutate(prnt_val = paste0(round_half_up(Org_Spawners),
+#                            " (",
+#                            round(Org_SE, 2),
+#                            ")")) %>%
+#   select(-starts_with("Org")) %>%
+#   pivot_wider(names_from = Origin,
+#               values_from = prnt_val,
+#               names_sort = T)
 ```
 
 
@@ -483,7 +500,7 @@ To convert estimates of redds in mainstem areas into estimates of natural and ha
 
 ## Prespawn Mortality
 
-After translating estimates of redds to estimates of spawners by origin, we can then compare the spawner estimates to escapement estimates made using PIT tags, and estimate a prespawn mortality rate. Taking the total PIT-tag based escapement estimate, by origin, to the Methow, we then subtract any fish removed at Tumwater or Dryden for broodstock or surplus, as well as any deaths due to harvest (Table \@ref(tab:removals)), and then subtract the total estimate of spawners, including the tributaries, to provide an estimate of how many fish succumbed to prespawn mortality. Dividing that number by the total escapement estimate provides an estimate of the prespawn mortality rate, by origin across the entire Methow population. 
+After translating estimates of redds to estimates of spawners by origin, we can then compare the spawner estimates to escapement estimates made using PIT tags, and estimate a prespawn mortality rate. Taking the total PIT-tag based escapement estimate, by origin, to the Methow, we then subtract any fish removed for broodstock or surplus, as well as any deaths due to harvest (Table \@ref(tab:removals)), and then subtract the total estimate of spawners, including the tributaries, to provide an estimate of how many fish succumbed to prespawn mortality. Dividing that number by the total escapement estimate provides an estimate of the prespawn mortality rate, by origin across the entire Methow population. 
 
 ```{r removals}
 rem_df %>%
@@ -498,7 +515,7 @@ rem_df %>%
 ```
 
 
-We can also compare estimates of escapement to the mainstem lower Methow (after subtracting the the fish removed at Dryden) and to the upper mainstem above Tumwater (after subtracting the fish removed at Tumwater) to total estimates of spawners in mainstem areas below and above Tumwater dam. This allows us to estimate prespawn mortality in the mainstem above and below Tumwater, by origin. Using this approach, it is unclear which area deaths due to harvest should apply to, which is a moot point in years when there was no harvest.
+We can also compare estimates of escapement to the lower mainstem Methow (after subtracting the the fish removed there) to the total estimate of spawners in the same area This allows us to estimate prespawn mortality in the lower mainstem Methow, by origin. 
 
 If any group had a higher estimates of spawners compared to escapement, we fixed our prespawn mortality estimate at 0, reflecting a very low level of prespawn mortality. There is uncertainty in both the escapement and spawner estimates, which could explain why these types of scenarios could arise. 
 
@@ -534,7 +551,7 @@ ps_mort_df = escp_met %>%
 
 ```{r}
 ps_mort_met = escp_met %>%
-  filter(Area == 'Met_all') %>%
+  filter(Area == 'Methow_all') %>%
   left_join(rem_df %>%
               group_by(Origin) %>%
               summarize(across(rem,
@@ -554,7 +571,13 @@ ps_mort_met = escp_met %>%
               summarize(Spawners = sum(Org_Spawners),
                         Spawners_SE = sqrt(sum(Org_SE^2)),
                         .groups = "drop") %>%
-              bind_rows(trib_spawners) %>%
+              bind_rows(escp_met %>%
+                          filter(!Area %in% c("Methow_all",
+                                              "Lower Methow",
+                                              "Methow Fish Hatchery",
+                                              "Spring Creek")) %>%
+                          rename(Spawners = estimate,
+                                 Spawners_SE = se)) %>%
               group_by(Origin) %>%
               summarize(spwn_est = sum(Spawners),
                         spwn_se = sqrt(sum(Spawners_SE^2)),
@@ -699,7 +722,7 @@ met_tags %>%
                 latex_options = "striped")
 ```
 
-Parameter estimates for fish / redd in the lower Methow are shown in Table \@ref(tab:fpr-prop). For the four main areas of the Methow, the number of wild, HOR-SN (hatchery origin safety net) and HOR-C (hatchery origin conservation) tags and their proporitions are shown in Table \@ref(tab:hatch-prop). 
+Parameter estimates for fish / redd in the lower Methow are shown in Table \@ref(tab:fpr-prop). For the four main areas of the Methow, the number of wild, HOR-SN (hatchery origin safety net) and HOR-C (hatchery origin conservation) tags and their proportions are shown in Table \@ref(tab:hatch-prop). 
 
 ```{r fpr-prop}
 met_sex_tab %>%
@@ -814,6 +837,7 @@ ps_mort_df %>%
 ```
 
 
+
 # Discussion
 
 Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches. 
@@ -823,7 +847,9 @@ Most of the covariates collected in `r yr` were within the range of those in the
 
 <!-- The estimates of high prespawn mortality in the lower mainstem of the Methow for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches. -->
 
-Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In some cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none. In addition, in 2021 because of the very skewed sex ratio many of the male steelhead caught in the lower mainstem were live spawned and then returned to the river. This could mean that the escapement estimates in Tables \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main) should perhaps be a bit higher, even as high as the estimated number of spawners. 
+Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In some cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none. It should be noted that our assumption of no pre-spawn mortality once fish enter the tributaries (i.e. after moving out of the lower mainstem Methow) may be violated. For example, it appears there is at least several weeks between the earliest PIT tag detection and peak spawning. With the existing data, it can be difficult to estimate pre-spawn mortality in these tributaries.
+
+In addition, in 2021, because of the very skewed sex ratio, many of the male steelhead caught in the lower mainstem were live spawned and then returned to the river. This could mean that the escapement estimates in Tables \@ref(tab:ps-mort-met) and \@ref(tab:ps-mort-main) should perhaps be a bit higher, even as high as the estimated number of spawners. 
 
 
 # Acknowledgements
