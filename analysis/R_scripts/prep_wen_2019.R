@@ -72,84 +72,66 @@ redd_df = predict_neterr(redd_org,
 #-----------------------------------------------------------------
 # pull in PIT tag escapement results for use in converting redds to spawners
 
-# load DABOM results, including prepped data
-load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/PRA_Steelhead_', yr, '_DABOM.rda'))
-# fix a few prefixes for tags with known issues (Ben Truscott had to enter them incorrectly in his database)
-bio_df %<>%
-  mutate(TagID = ifelse(!TagID %in% proc_list$proc_ch$TagID,
-                        str_replace(TagID,
-                                    '^3DD',
-                                    '3DA'),
-                        TagID))
+load('../DabomPriestRapidsSthd/analysis/data/derived_data/site_config.rda')
+load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/PRA_DABOM_Steelhead_', yr, '.rda'))
 
-tag_summ = summariseTagData(proc_list$proc_ch %>%
-                              mutate(lastObsDate = ObsDate) %>%
-                              left_join(proc_list$NodeOrder %>%
-                                          mutate(Group = fct_expand(Group, 'WellsPool'),
-                                                 Group = if_else(Node == 'WEA',
-                                                                 'WellsPool',
-                                                                 as.character(Group)),
-                                                 Group = ifelse(NodeSite %in% c('FST', 'RRF', 'WVT', 'RIA', 'CLK'),
-                                                                NA,
-                                                                Group),
-                                                 Group = factor(Group,
-                                                                levels = c('Wenatchee', 'Entiat', 'Methow', 'Okanogan', 'WellsPool', 'BelowPriest')))) %>%
-                              mutate(SiteID = NodeSite),
-                            trap_data = bio_df %>%
-                              filter(TagID %in% proc_list$proc_ch$TagID) %>%
-                              mutate(Age = str_replace(Age, 'r', 'R'))) %>%
-  rename(Branch = Group) %>%
-  distinct() %>%
-  # deal with duplicated records (usually from fish caught in the trap twice)
-  arrange(TagID, TrapDate) %>%
-  group_by(TagID) %>%
-  slice(1) %>%
-  ungroup()
 
-# any duplicated tags?
-identical(nrow(tag_summ),
-          n_distinct(tag_summ$TagID))
+tag_summ <- summarizeTagData(filter_obs,
+                             bio_df %>%
+                               group_by(tag_code) %>%
+                               slice(1) %>%
+                               ungroup())
 
-# n_distinct(bio_df$TagID)
-#
-# tag_summ %>%
-#   filter(TagID %in% TagID[duplicated(TagID)]) %>%
-#   # filter(is.na(tag_summ$Age)) %>%
-#   select(TagID) %>%
-#   left_join(bio_df) %>%
-#   select(TagID, TrapDate:CWT)
+# look at which branch each tag was assigned to for spawning
+brnch_df = buildNodeOrder(addParentChildNodes(parent_child,
+                                              configuration))
 
+tag_summ %<>%
+  left_join(brnch_df,
+            by = c("spawn_node" = "node"))
+
+
+# pull out Wenatchee tags
 wen_tags = tag_summ %>%
-  select(-TagPath) %>%
-  left_join(proc_list$NodeOrder %>%
-              select(AssignSpawnNode = Node,
-                     TagPath = Path),
-            by = "AssignSpawnNode") %>%
-  filter(grepl('LWE', TagPath)) %>%
-  mutate(Area = ifelse(AssignSpawnNode == 'TUM',
+  filter(str_detect(path, "LWE")) %>%
+  mutate(Area = ifelse(spawn_node == 'TUM',
                        'TUM_bb',
-                       ifelse(grepl('TUM', TagPath),
-                              'Tribs_above_TUM',
-                              'Below_TUM'))) %>%
+                       if_else(str_detect(path, 'TUM'),
+                               'Tribs_above_TUM',
+                               'Below_TUM'))) %>%
   mutate(Area = factor(Area,
                        levels = c("Below_TUM", 'TUM_bb', 'Tribs_above_TUM'))) %>%
-  select(TagID, Location = Area, Origin, Sex)
+  select(TagID = tag_code,
+         Location = Area,
+         Origin = origin,
+         Sex = sex)
 
-# add in tags from specific tribs
+
+
+# add in tags from specific tribs (will result in some duplicate tags)
 wen_tags %<>%
   # filter(Location != "Tribs_above_TUM") %>%
   bind_rows(tag_summ %>%
-              filter(str_detect(AssignSpawnNode, "CHL")) %>%
+              filter(str_detect(spawn_node, "CHL")) %>%
               mutate(Location = "Chiwawa") %>%
-              select(TagID, Location, Origin, Sex)) %>%
+              select(TagID = tag_code,
+                     Location,
+                     Origin = origin,
+                     Sex = sex)) %>%
   bind_rows(tag_summ %>%
-              filter(str_detect(AssignSpawnNode, "NAL")) %>%
+              filter(str_detect(spawn_node, "NAL")) %>%
               mutate(Location = "Nason") %>%
-              select(TagID, Location, Origin, Sex)) %>%
+              select(TagID = tag_code,
+                     Location,
+                     Origin = origin,
+                     Sex = sex)) %>%
   bind_rows(tag_summ %>%
-              filter(str_detect(AssignSpawnNode, "PES")) %>%
+              filter(str_detect(spawn_node, "PES")) %>%
               mutate(Location = "Peshastin") %>%
-              select(TagID, Location, Origin, Sex)) %>%
+              select(TagID = tag_code,
+                     Location,
+                     Origin = origin,
+                     Sex = sex)) %>%
   mutate(Location = factor(Location,
                            levels = c("Below_TUM",
                                       "TUM_bb",
@@ -158,14 +140,6 @@ wen_tags %<>%
                                       "Nason",
                                       "Chiwawa")))
 
-# # remove duplicated tags
-# wen_tags %<>%
-#   filter(!TagID %in% TagID[duplicated(TagID)]) %>%
-#   bind_rows(wen_tags %>%
-#               filter(TagID %in% TagID[duplicated(TagID)]) %>%
-#               filter(str_detect(Location,
-#                                 "_TUM$",
-#                                 negate = T)))
 
 #-------------------------------------------------------
 # if differentiating between above and below Tumwater
@@ -231,8 +205,21 @@ wen_origin_tab = wen_prop_origin %>%
 
 #-----------------------------------------------------------------
 # pull in some estimates from DABOM
-all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20210208.xlsx'),
-                      'All Escapement')
+dabom_folder = '../DabomPriestRapidsSthd/outgoing/estimates'
+yr_est_files = list.files(dabom_folder)[str_detect(list.files(dabom_folder), paste0("_", yr, "_"))]
+max_date <- str_sub(yr_est_files, -13, -6) %>%
+  ymd() %>%
+  max() %>%
+  format("%Y%m%d")
+
+all_escp <- read_excel(paste(dabom_folder,
+                             yr_est_files[str_detect(yr_est_files, max_date)],
+                             sep = "/"),
+                       "All Escapement")
+
+
+# all_escp = read_excel(paste0('../DabomPriestRapidsSthd/outgoing/estimates/PRA_Steelhead_', yr, '_20210208.xlsx'),
+#                       'All Escapement')
 
 
 #-----------------------------------------------------------------
@@ -258,30 +245,47 @@ redds_below_arrays = read_excel(here('analysis/data/raw_data',
              .before = 0)
 
 trib_spawners = all_escp %>%
-  filter(param %in% c('past_ICL',
-                      'past_PES',
-                      'past_MCL',
-                      'past_CHM',
-                      'past_CHW',
-                      'past_CHL',
-                      'past_NAL',
-                      'past_LWN',
-                      'past_WTL')) %>%
-  select(Origin, Location = param, Spawners = estimate, Spawners_SE = se) %>%
+  filter(location %in% c('ICL',
+                         'PES',
+                         'MCL',
+                         'CHM',
+                         'CHW',
+                         'CHL',
+                         'NAL',
+                         'LWN',
+                         'WTL')) %>%
+  mutate(origin = recode(origin,
+                         "1" = "W",
+                         "2" = "H")) %>%
+  select(Origin = origin,
+         Location = location,
+         Spawners = estimate,
+         Spawners_SE = se) %>%
+  mutate(Origin = recode(Origin,
+                         "W" = "Natural",
+                         "H" = "Hatchery")) %>%
   arrange(Location, Origin)
 
 escp_wen = all_escp %>%
-  filter(param %in% c('past_LWE',
-                      'LWE_bb',
-                      'TUM_bb',
-                      'UWE_bb')) %>%
-  mutate(Area = recode(param,
-                       'past_LWE' = 'Wen_all',
+  filter(location %in% c('LWE',
+                         'LWE_bb',
+                         'TUM_bb',
+                         'UWE_bb')) %>%
+  mutate(Area = recode(location,
+                       'LWE' = 'Wen_all',
                        'LWE_bb' = 'Below_TUM',
                        'UWE_bb' = 'TUM_bb')) %>%
-  group_by(Area, Origin) %>%
+  mutate(origin = recode(origin,
+                         "1" = "W",
+                         "2" = "H")) %>%
+  mutate(Origin = recode(origin,
+                         "W" = "Natural",
+                         "H" = "Hatchery")) %>%
+  group_by(Area,
+           Origin) %>%
   summarise(estimate = sum(estimate),
-            se = sqrt(sum(se^2)))
+            se = sqrt(sum(se^2)),
+            .groups = "drop")
 
 #-----------------------------------------------------------------
 # save
