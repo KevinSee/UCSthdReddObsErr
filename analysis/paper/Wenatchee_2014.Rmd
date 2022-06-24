@@ -10,13 +10,26 @@ institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
+    wdfwTemplates::wdfw_html_format2:
+      fig_caption: yes
+      fig_height: 6
+      fig_width: 6
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: yes
+        smooth_scroll: yes
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
     bookdown::pdf_document2:
       fig_caption: yes
       fig_height: 5
       fig_width: 6
       toc: yes
       includes:
-        in_header: ../templates/header_ABS.tex
+        in_header: ../templates/header_wdfw.tex
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks2.lua
@@ -515,12 +528,16 @@ ps_mort_df = escp_wen %>%
   mutate(escp = estimate - rem) %>%
   left_join(spwn_rch %>%
               select(-ends_with('cv')) %>%
-              gather(type, value, Hatchery:Natural_SE) %>%
+              pivot_longer(Hatchery:Natural_SE,
+                           names_to = "type",
+                           values_to = "value") %>%
               mutate(Origin = str_remove(type, '_SE'),
-                     type = if_else(grepl("_SE$", type),
-                                    "spwn_se",
-                                    "spwn_est")) %>%
-              spread(type, value) %>%
+                     across(type,
+                            ~ if_else(str_detect(type, "_SE$"),
+                                      "spwn_se",
+                                      "spwn_est"))) %>%
+              pivot_wider(names_from = "type",
+                          values_from = "value") %>%
               filter(Location %in% c('Below_TUM', 'TUM_bb')) %>%
               group_by(Area = Location,
                        Origin) %>%
