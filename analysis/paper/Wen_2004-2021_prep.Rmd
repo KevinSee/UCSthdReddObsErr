@@ -187,8 +187,16 @@ non_index_rch <- read_excel(data_file,
          across(river,
                 str_remove,
                 " Ck")) %>%
+  mutate(location = if_else(!grepl('W[[:digit:]]', non_index_reach),
+                            river,
+                            if_else(non_index_reach %in% paste0('W', 1:7),
+                                    'Below_TUM',
+                                    'Above_TUM'))) %>%
+  relocate(location,
+           .after = "river") %>%
   arrange(year,
           river,
+          location,
           non_index_reach,
           date) %>%
   left_join(method_df %>%
@@ -207,8 +215,16 @@ index_rch <- read_excel(data_file,
          across(river,
                 str_remove,
                 " Ck")) %>%
+  mutate(location = if_else(!grepl('W[[:digit:]]', index_reach),
+                            river,
+                            if_else(index_reach %in% paste0('W', 1:7),
+                                    'Below_TUM',
+                                    'Above_TUM'))) %>%
+  relocate(location,
+           .after = "river") %>%
   arrange(year,
           river,
+          location,
           index_reach,
           date)
 
@@ -222,7 +238,12 @@ no_err_rch <- read_excel(data_file,
                 "White" = "White River"),
          across(major,
                 str_remove,
-                " Ck"))
+                " Ck")) %>%
+  mutate(location = if_else(major == "Wenatchee",
+                            "Above_TUM",
+                            major)) %>%
+  relocate(location,
+           .after = "major")
 
 # put a couple of index reaches into the no-error reaches
 no_err_rch %<>%
@@ -233,6 +254,7 @@ no_err_rch %<>%
                                         "L3")) %>%
               group_by(year,
                        river,
+                       location,
                        index_reach) %>%
               summarize(total = sum(redds,
                                     na.rm = T),
@@ -255,6 +277,7 @@ all_rch <- index_rch %>%
   #               recode,
   #               "P3 (P2)" = "P2")) %>%
   group_by(year, river,
+           location,
            reach = index_reach) %>%
   summarize(across(redds,
                    sum,
@@ -263,12 +286,14 @@ all_rch <- index_rch %>%
   mutate(type = "I") %>%
   bind_rows(non_index_rch %>%
               select(year, river,
+                     location,
                      reach = non_index_reach,
                      redds) %>%
               mutate(type = "NI")) %>%
   bind_rows(no_err_rch %>%
               select(year,
                      river = major,
+                     location,
                      reach = minor,
                      redds = total) %>%
               mutate(type = "NE"))
@@ -953,7 +978,9 @@ cor_df <- index_redd_results %>%
   select(year:data) %>%
   unnest(data) %>%
   select(year:redds) %>%
-  group_by(year, river) %>%
+  group_by(year, 
+           river,
+           location) %>%
   nest() %>%
   ungroup() %>%
   mutate(cor_mat = map(data,
@@ -984,6 +1011,43 @@ cor_df <- index_redd_results %>%
 
 ```
 
+```{r, eval = F}
+cor_loc_df <- index_redd_results %>%
+  select(year:data) %>%
+  unnest(data) %>%
+  select(year:redds) %>%
+  group_by(year, 
+           river,
+           location) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(cor_mat = map(data,
+                       .f = function(x) {
+                         cor_mat = try(x %>%
+                                         group_by(index_reach) %>%
+                                         mutate(survey = 1:n()) %>%
+                                         select(index_reach,
+                                                survey,
+                                                redds) %>%
+                                         pivot_wider(names_from = index_reach,
+                                                     values_from = redds) %>%
+                                         select(-survey) %>%
+                                         cor(use = "pairwise",
+                                             # method = 'kendall')
+                                             method = 'spearman'),
+                                       silent = T)
+                         if(class(cor_mat) == 'try-error') {
+                           return(diag(1, nrow = 1))
+                         } else {
+                           cor_mat[is.na(cor_mat)] = 0
+                           diag(cor_mat) = 1
+                           return(cor_mat)
+                         }
+                       })) %>%
+  select(-data)
+```
+
+
 We used the Gaussian Area-Under-the-Curve (GAUC) method described in @Murdoch2018 to estimate the number of redds using the number of new redds observed each survey, the mean of the estimated net error for that reach and the mean of the estimated net error standard error for that reach. If a reach failed to contain a minimum number of observed redds (`r min_redds`), or a minimum number of non-zero surveys (`r min_non0_wks`), or the GAUC model failed to converge, then the number of redds was estimated by dividing the total number of observed redds by the mean estimated net error. 
 
 In addition, if the estimated net error was below a threshold of `r err_thres`, we borrowed the net error estimate from the closest upstream index reach, as the initial estimate was deemed inappropriate. The lowest observed net error in the @Murdoch2018 study was `r round(min(one_obs_model_data$NetError), 2)`.
@@ -998,7 +1062,14 @@ census_surv <- index_rch |>
   filter(method == "Truth")
 
 census_redds <- census_surv %>%
-  group_by(year, river,
+  mutate(location = if_else(!str_detect(index_reach, 'W[[:digit:]]'),
+                            river,
+                            if_else(index_reach %in% paste0('W', 1:7),
+                                    'Below_TUM',
+                                    'Above_TUM'))) %>%
+  group_by(year, 
+           river,
+           location,
            index_reach) %>%
   summarize(across(redds,
                    sum),
@@ -1204,6 +1275,7 @@ non_index_redds2 <- non_index_rch %>%
 
 
 non_index_redds = non_index_redds2
+rm(non_index_redds2)
 ```
 
 
@@ -1213,8 +1285,14 @@ For all the reaches surveyed for redds each year, we can add the estimates of re
 
 ```{r}
 all_redds <- index_redd_results %>%
+  left_join(index_rch %>%
+              select(river, location,
+                     index_reach) %>%
+              distinct(),
+            by = c("river", "index_reach")) %>%
   mutate(method = "Index") %>%
   select(year, river,
+         location,
          reach = index_reach,
          method,
          obs_redds = tot_obs_redds,
@@ -1231,6 +1309,7 @@ all_redds <- index_redd_results %>%
   bind_rows(non_index_redds %>%
               mutate(method = "Non-Index") %>%
               select(year, river,
+                     location,
                      reach = non_index_reach,
                      method,
                      obs_redds = redds,
@@ -1242,7 +1321,9 @@ all_redds <- index_redd_results %>%
                 fct_relevel,
                 "W10",
                 after = Inf)) %>%
-  arrange(year, river, reach, method)
+  arrange(year, river, 
+          location,
+          reach, method)
 
 # all_redds %>%
 #   tabyl(river, year)
@@ -1270,9 +1351,12 @@ all_redds %>%
 river_est <- all_redds %>%
   filter(method == "Index") %>%
   select(year, river,
+         location,
          err_est,
          contains("redd")) %>%
-  group_by(year, river) %>%
+  group_by(year, 
+           river,
+           location) %>%
   nest(redd_df = c(err_est, contains("redd"))) %>%
   left_join(cor_df) %>%
   ungroup() %>%
@@ -1306,7 +1390,7 @@ river_est <- all_redds %>%
          -cor_mat) %>%
   unnest(redd_estimate) %>%
   add_column(method = "Index",
-             .after = 2)
+             .after = 3)
 
 # river_naive <- all_redds %>%
 #   filter(method == "Index") %>%
@@ -1365,6 +1449,7 @@ spwn_org_redd <- all_redds %>%
   # filter(year < 2011) %>%
   group_by(year,
            river,
+           location,
            method) %>%
   summarize(n_rch = n_distinct(reach),
             across(err_est,
@@ -1377,7 +1462,8 @@ spwn_org_redd <- all_redds %>%
             .groups = "drop") %>%
   bind_rows(river_est) %>%
   group_by(year,
-           river) %>%
+           river,
+           location) %>%
   summarize(across(n_rch,
                    sum),
             across(err_est,
@@ -1431,15 +1517,20 @@ dam_cnt_name = c("PriestRapids",
                  "RockIsland")[2]
 
 pit_list <- tibble(year = 2011:2021) %>%
-  mutate(pit_info = map(year,
-                   .f = function(yr) {
+  mutate(dam_cnt_name = if_else(year %in% c(2016:2017, 2019:2021),
+                                "RockIsland",
+                                "PriestRapids")) %>%
+  mutate(pit_info = map2(year,
+                         dam_cnt_name,
+                   .f = function(yr,
+                                 dam_cnt_name) {
                      load(paste0('O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates/', dam_cnt_name,
                                  "/PRA_DABOM_Steelhead_", yr, ".rda"))
 
                      wen_tags = save_list$`Tag Summary` %>%
                        filter(str_detect(path, "LWE")) %>%
                        mutate(Location = if_else(spawn_node %in% c('TUM', 'UWE'),
-                                                 'TUM_bb',
+                                                 'Above_TUM',
                                                  if_else(str_detect(path, 'TUM'),
                                                          'Tribs_above_TUM',
                                                          if_else(str_detect(spawn_node, "LWE"),
@@ -1448,7 +1539,7 @@ pit_list <- tibble(year = 2011:2021) %>%
                        mutate(Location = factor(Location,
                                                 levels = c("Below_TUM",
                                                            "Tribs_below_TUM",
-                                                           'TUM_bb',
+                                                           'Above_TUM',
                                                            'Tribs_above_TUM'))) %>%
                        mutate(trib = if_else(str_detect(path, " CHL"),
                                              "Chiwawa",
@@ -1489,6 +1580,39 @@ pit_est = pit_list %>%
   unnest(est) %>%
   select(-species,
          -spawn_year)
+
+# generate fish/redd and pHOS based on PIT tags
+pit_sex_org = pit_list %>%
+  mutate(tags = map(pit_info,
+                    "tags")) %>%
+  select(-pit_info) %>%
+  unnest(tags) %>%
+  mutate(location = if_else(Location %in% c("Above_TUM", "Below_TUM"), 
+                            as.character(Location), 
+                            trib)) %>% 
+  group_by(year, location) %>% 
+  summarize(n_f = sum(Sex == "F"), 
+            n_m = sum(Sex == "M"), 
+            n_nor = sum(Origin == "W"), 
+            n_hor = sum(Origin == "H"),
+            .groups = "drop") %>%
+  rowwise() %>%
+  mutate(f_prop = n_f / (n_f + n_m),
+         f_prop_se = sqrt((f_prop * (1 - f_prop)) / (n_f + n_m)),
+         fpr = (1 - f_prop) / f_prop + 1,
+         # fpr_se = deltamethod(~ (1 - x1) / x1 + 1,
+         #                      mean = f_prop,
+         #                      cov = diag(f_prop_se^2,
+         #                                 nrow = 1,
+         #                                 ncol = 1,
+         #                                 names = F)),
+         fpr_se = 1 / (f_prop^2) * f_prop_se,
+         phos = n_hor / (n_hor + n_nor),
+         phos_se = sqrt((phos * (1 - phos)) / (n_hor + n_nor))) %>%
+  select(year, location,
+         starts_with("fpr"),
+         starts_with("phos"))
+
 
 trib_spawners_all = pit_est %>%
   filter(location %in% c('ICL',
@@ -1566,7 +1690,11 @@ spwn_2020 = pit_est %>%
   mutate(across(origin,
                 recode,
                 "H" = "hor",
-                "W" = "nor")) %>%
+                "W" = "nor"),
+         across(location,
+                recode,
+                "LWE_bb" = "Below_TUM",
+                "TUM_bb" = "Above_TUM")) %>%
   left_join(removal_df %>%
               select(year = Year,
                      origin = Origin,
@@ -1578,7 +1706,7 @@ spwn_2020 = pit_est %>%
                             "Natural" = "nor"),
                      across(location,
                             recode,
-                            "Below_TUM" = "LWE_bb"))) %>%
+                            "TUM_bb" = "Above_TUM"))) %>%
   rowwise() %>%
   mutate(escp = max(0, mean - rem)) %>%
   ungroup() %>%
@@ -1646,11 +1774,109 @@ spwn_org_est <- spwn_org_redd %>%
 
 ```
 
+```{r}
+# redo 2011-2013 with location specific fpr and pHOS from PIT tags
+spwn_org_redd_pit <- all_redds %>%
+  filter(method != "Index",
+         between(year, 2011, 2013)) %>%
+  group_by(year,
+           river,
+           location,
+           method) %>%
+  summarize(n_rch = n_distinct(reach),
+            across(err_est,
+                   mean),
+            across(c(obs_redds,
+                     redd_est),
+                   sum),
+            across(redd_se,
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop") %>%
+  bind_rows(river_est %>%
+              filter(between(year, 2011, 2013))) %>%
+  group_by(year,
+           river,
+           location) %>%
+  summarize(across(n_rch,
+                   sum),
+            across(err_est,
+                   mean),
+            across(c(obs_redds,
+                     redd_est),
+                   sum),
+            across(redd_se,
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop") %>%
+  left_join(pit_sex_org %>%
+              select(year,
+                     location,
+                     starts_with("fpr"),
+                     starts_with("phos")),
+            by = c("year",
+                   "location")) %>%
+  left_join(fpr_df %>%
+              select(year,
+                     fpr_all = fpr,
+                     fpr_all_se = fpr_se,
+                     phos_all = phos,
+                     phos_all_se = phos_se)) %>%
+  mutate(fpr = if_else(is.na(fpr),
+                       fpr_all,
+                       fpr),
+         fpr_se = if_else(is.na(fpr_se),
+                       fpr_all_se,
+                       fpr_se),
+         phos = if_else(is.na(phos),
+                       phos_all,
+                       phos),
+         phos_se = if_else(is.na(phos_se),
+                       phos_all_se,
+                       phos_se)) %>%
+  select(-contains("_all")) %>%
+  rowwise() %>%
+  mutate(spawn_est = redd_est * fpr,
+         spawn_se = deltamethod(~ x1 * x2,
+                                mean = c(redd_est, 
+                                         fpr),
+                                cov = diag(c(redd_se,
+                                             fpr_se)^2))) %>%
+  mutate(hor_spwn = redd_est * fpr * phos,
+         hor_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  mutate(nor_spwn = redd_est * fpr * (1 - phos),
+         nor_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       1 - phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  ungroup()
+
+spwn_org_redd %>%
+  anti_join(spwn_org_redd_pit,
+            by = c("year",
+                   "river",
+                   "location",
+                   "n_rch")) %>%
+  bind_rows(spwn_org_redd_pit) %>%
+  arrange(year,
+          river,
+          location) -> spwn_org_redd
+  
+```
+
+
 ## Expansion
 
-For some tribs that never had redd surveys, but do have PIT tag arrays (Chiwaukum, Chumstick and Misson), we estimated the portion of the hatchery and natural origin spawners that were estimated in those tributaries for 2014 - 2021, excluding 2020 because our estimates of mainstem spawners in 2020 were done with a different method due to COVID preventing redd surveys from occurring. We calculated the mean proportion of spawners by tributary, across the years we had estimates for. Years when no PIT tags were detected in a particular tributaries were not included in that mean (since that may be an underestimate of the number of spawners in that tributary). The proportions were then summed across all three tributaries. 
+For some tribs that never had redd surveys, but do have PIT tag arrays (Chiwaukum, Chumstick and Misson), we estimated the portion of the hatchery and natural origin spawners that were estimated in those tributaries for 2014 - 2021, excluding 2020 because our estimates of mainstem spawners in 2020 were done with a different method due to COVID preventing redd surveys from occurring. We calculated the mean proportion of spawners by tributary, across the years we had estimates for. Years when no PIT tags were detected in a particular tributaries were not included in that mean (since that may be an underestimate of the number of spawners in that tributary). The proportions were then summed across all three tributaries to estimate what proportion of the total run, by origin, that spawned in those tributaries. 
 
-We then expanded the estimates of spawners in the total Wenatchee by this proportion, to account for the fact that no redd surveys were conducted in those tributaries, and so any steelhead spawners there were missing from estimates in 2004-2013.
+We then expanded the estimates of spawners in the total Wenatchee by this proportion, to account for the fact that no redd surveys were conducted in those tributaries, and so any steelhead spawners there were missing from estimates in 2004-2010. We did not expand estimates for 2011-2013, because we did have PIT tag estimates of escpement to those tributaries for those years. 
 
 ```{r recent-spawners, cache = T}
 # skip 2020 because we did it differently that year
@@ -1683,7 +1909,11 @@ for(yr in all_wen_df$year) {
     select(Location, contains("fpr")) %>%
     full_join(wen_origin_tab %>%
                 select(Location, contains("prop")),
-              by = "Location")
+              by = "Location") %>%
+    rename(location = Location) %>%
+    mutate(across(location,
+                  recode,
+                  "TUM_bb" = "Above_TUM"))
 
   all_wen_df$wen_sex_org[all_wen_df$year == yr] = list(wen_sex_org)
 }
@@ -1864,10 +2094,10 @@ all_wen_df %<>%
                                                     err_se = 0,
                                                     GAUC = F)) %>%
                                  mutate(location = if_else(!grepl('W[[:digit:]]', reach),
-                                                           'Tribs_above_TUM',
+                                                           river,
                                                            if_else(reach %in% paste0('W', 1:7),
                                                                    'Below_TUM',
-                                                                   'TUM_bb'))) %>%
+                                                                   'Above_TUM'))) %>%
                                  return()
                              })) %>%
   mutate(river_est = map(redd_results,
@@ -1899,7 +2129,6 @@ all_wen_df %<>%
                                x %>%
                                  select(river,
                                         reach,
-                                        # location,
                                         index,
                                         data) %>%
                                  unnest(data) %>%
@@ -1909,7 +2138,6 @@ all_wen_df %<>%
                                         survey_date,
                                         new_redds) %>%
                                  group_by(river,
-                                          # location,
                                           index) %>%
                                  nest() %>%
                                  ungroup() %>%
@@ -1973,8 +2201,113 @@ all_wen_df %<>%
                                            by = c("river", "index", "err_est", "tot_obs_redds", "redd_est")) %>%
                                  rename(obs_redds = tot_obs_redds) %>%
                                  return()
+                             })) %>%
+  mutate(loc_est = map(redd_results,
+                             .f = function(x) {
+                               redd_tot <- x %>%
+                                 group_by(location,
+                                          index) %>%
+                                 summarize(across(err_est,
+                                                  mean),
+                                           across(c(tot_obs_redds,
+                                                    redd_est),
+                                                  sum),
+                                           across(redd_se,
+                                                  ~ sqrt(sum(.^2))),
+                                           .groups = "drop") %>%
+                                 rename(redd_se_naive = redd_se)
+
+
+                               z = x %>%
+                                 select(location,
+                                        index,
+                                        err_est,
+                                        contains("redd")) %>%
+                                 group_by(location,
+                                          index) %>%
+                                 nest(redd_df = c(err_est, contains("redd")))
+
+                               x %>%
+                                 select(location,
+                                        reach,
+                                        index,
+                                        data) %>%
+                                 unnest(data) %>%
+                                 select(location,
+                                        reach,
+                                        index,
+                                        survey_date,
+                                        new_redds) %>%
+                                 group_by(location,
+                                          index) %>%
+                                 nest() %>%
+                                 ungroup() %>%
+                                 full_join(z,
+                                           by = c("location", "index")) %>%
+                                 mutate(cor_mat = map(data,
+                                                      .f = function(y) {
+                                                        if(is.null(y)) {
+                                                          return(NULL)
+                                                        }
+                                                        cor_mat = try(y %>%
+                                                                        group_by(reach) %>%
+                                                                        mutate(survey = 1:n()) %>%
+                                                                        ungroup() %>%
+                                                                        select(reach, survey, new_redds) %>%
+                                                                        pivot_wider(names_from = reach,
+                                                                                    values_from = new_redds) %>%
+                                                                        select(-survey) %>%
+                                                                        cor(use = "pairwise",
+                                                                            # method = 'kendall')
+                                                                            method = 'spearman'),
+                                                                      silent = T)
+
+                                                        if(class(cor_mat)[1] == 'try-error') {
+                                                          return(diag(1, nrow = 1))
+                                                        } else {
+                                                          cor_mat[is.na(cor_mat)] = 0
+                                                          diag(cor_mat) = 1
+                                                          return(cor_mat)
+                                                        }
+                                                      })) %>%
+                                 mutate(redd_estimate = map2(redd_df,
+                                                             cor_mat,
+                                                             .f = function(x, y) {
+                                                               tot_df <- x %>%
+                                                                 summarize(across(err_est,
+                                                                                  mean),
+                                                                           across(c(tot_obs_redds,
+                                                                                    redd_est),
+                                                                                  sum))
+
+                                                               se = try(deltamethod(as.formula(paste('~', paste0('x', 1:nrow(x), collapse='+'))),
+                                                                                    mean = x$redd_est,
+                                                                                    cov = diag(x = x$redd_se,
+                                                                                               nrow = nrow(y)) %*% y %*% diag(x = x$redd_se,
+                                                                                                                              nrow = nrow(y))),
+                                                                        silent = T)
+
+                                                               if(class(se)[1] == "try-error") {
+                                                                 se = sqrt(sum(x$redd_se^2))
+                                                               }
+                                                               tot_df %<>%
+                                                                 mutate(redd_se = se)
+                                                               return(tot_df)
+                                                             })) %>%
+                                 select(-data,
+                                        -redd_df,
+                                        -cor_mat) %>%
+                                 unnest(redd_estimate) %>%
+                                 full_join(redd_tot,
+                                           by = c("location", "index", "err_est", "tot_obs_redds", "redd_est")) %>%
+                                 rename(obs_redds = tot_obs_redds) %>%
+                                 return()
                              }))
 
+```
+
+```{r, eval = F}
+# use fish/redd and pHOS estimates from the entire river based on Dryden sampling 
 recent_spwn_redd <- all_wen_df %>%
   select(year,
          river_est) %>%
@@ -2043,6 +2376,90 @@ recent_spwn_all <- recent_spwn_redd %>%
 
 ```
 
+```{r}
+# use fish/redd and pHOS estimates for each section of Wenatchee (upper, lower, tribs)
+# based on PIT tag detections within each section
+recent_spwn_redd <- all_wen_df %>%
+  select(year,
+         loc_est) %>%
+  unnest(loc_est) %>%
+  full_join(all_wen_df %>%
+              mutate(wen_sex_org = map(wen_sex_org,
+                                       .f = function(x) {
+                                         x %>%
+                                           rename(phos = h_prop,
+                                                  phos_se = prop_se) %>%
+                                           select(-w_prop)
+                                       })) %>%
+              select(year,
+                     wen_sex_org) %>%
+              unnest(wen_sex_org)) %>%
+  filter(location != "Tribs_above_TUM") %>%
+  rowwise() %>%
+  mutate(spawn_est = redd_est * fpr,
+         spawn_se = deltamethod(~ x1 * x2,
+                                mean = c(redd_est, 
+                                         fpr),
+                                cov = diag(c(redd_se,
+                                             fpr_se)^2))) %>%
+  mutate(hor_spwn = redd_est * fpr * phos,
+         hor_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  mutate(nor_spwn = redd_est * fpr * (1 - phos),
+         nor_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       1 - phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  ungroup() %>%
+  group_by(year) %>%
+  summarize(across(c(obs_redds,
+                     redd_est,
+                     spawn_est,
+                     hor_spwn,
+                     nor_spwn),
+                   sum),
+            across(c(redd_se,
+                     spawn_se,
+                     hor_se,
+                     nor_se),
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop")
+
+recent_spwn_all <- recent_spwn_redd %>%
+              select(year,
+                     starts_with("hor"),
+                     starts_with("nor")) %>%
+              bind_rows(trib_spawners_all %>%
+                          filter(year %in% recent_spwn_redd$year) %>%
+                          group_by(year) %>%
+                          summarize(across(ends_with("spwn"),
+                                           sum),
+                                    across(ends_with("se"),
+                                           ~ sqrt(sum(.^2))),
+                                    .groups = "drop")) %>%
+              group_by(year) %>%
+              summarize(across(ends_with("spwn"),
+                               sum),
+                        across(ends_with("se"),
+                               ~ sqrt(sum(.^2))),
+                        .groups = "drop") %>%
+              rename(tot_hor_spwn = hor_spwn,
+                     tot_nor_spwn = nor_spwn,
+                     tot_hor_se = hor_se,
+                     tot_nor_se = nor_se)
+```
+
+
+
+
 ```{r prop-tribs}
 # get the proportion of trib spawners
 prop_trib <- trib_spawners_all %>%
@@ -2101,30 +2518,29 @@ expn_df <- prop_trib %>%
 
 spwn_org_expnd <- spwn_org_est %>%
   bind_cols(expn_df) %>%
-  # bind_cols(prop_trib %>%
-  #             group_by(year) %>%
-  #             summarize(across(ends_with("prop"),
-  #                              sum),
-  #                       across(ends_with("se"),
-  #                              ~ sqrt(sum(.^2))),
-  #                       .groups = "drop") %>%
-  #             summarize(across(contains("prop"),
-  #                              mean))) %>%
   mutate(across(hor_spwn,
-                ~ . / (1 - hor_prop)),
+                ~ if_else(!year %in% unique(trib_spawners_all$year),
+                          . / (1 - hor_prop),
+                          .)),
          across(nor_spwn,
-                ~ . / (1 - nor_prop))) %>%
+                ~ if_else(!year %in% unique(trib_spawners_all$year),
+                          . / (1 - nor_prop),
+                          .))) %>%
   rowwise() %>%
-  mutate(hor_se = deltamethod(~ x1 / (1 - x2),
-                              mean = c(hor_spwn,
-                                       hor_prop),
-                              cov = diag(c(hor_se,
-                                           hor_prop_se)^2)),
-         nor_se = deltamethod(~ x1 / (1 - x2),
-                              mean = c(nor_spwn,
-                                       nor_prop),
-                              cov = diag(c(nor_se,
-                                           nor_prop_se)^2))) %>%
+  mutate(hor_se = if_else(!year %in% unique(trib_spawners_all$year),
+                          deltamethod(~ x1 / (1 - x2),
+                                      mean = c(hor_spwn,
+                                               hor_prop),
+                                      cov = diag(c(hor_se,
+                                                   hor_prop_se)^2)),
+                          hor_se),
+         nor_se = if_else(!year %in% unique(trib_spawners_all$year),
+                          deltamethod(~ x1 / (1 - x2),
+                                      mean = c(nor_spwn,
+                                               nor_prop),
+                                      cov = diag(c(nor_se,
+                                                   nor_prop_se)^2)),
+                          nor_se)) %>%
   select(-contains("prop"))
 
   
@@ -2241,7 +2657,7 @@ spwn_org_est %>%
 
 ## Expansion
 
-Table \@ref(tab:expn-tab) shows the proportion of the overall number of spawners in 2014-2021 (except 2020) estimated to be in Chiwaukum, Chumstick and Mission creeks. These are the proportions used to expand older estimates of total spawners by origin. 
+Table \@ref(tab:expn-tab) shows the proportion of the overall number of spawners in 2014-2021 (except 2020) estimated to be in Chiwaukum, Chumstick and Mission creeks. These are the proportions used to expand older estimates (pre-2011) of total spawners by origin. 
 
 ```{r expn-tab}
 expn_df %>%
@@ -2277,12 +2693,14 @@ wen_spwn <- spwn_org_expnd %>%
               rename_with(function(x) str_remove(x, "tot_"))) %>%
   bind_rows(spwn_2020) %>%
   arrange(year)
+```
 
+
+```{r save-ts}
 # save as csv
 write.csv(wen_spwn,
           file = here("outgoing",
                       "Wenatchee_Sthd_Spwn_2004-2021.csv"))
-
 ```
 
 
