@@ -1,6 +1,6 @@
 ---
-title: "Estimates of Wenatchee Steelhead Redds"
-subtitle: "Spawn Years 2004-2013"
+title: "Estimates of Wenatchee Steelhead Spawners"
+subtitle: "Spawn Years 2004-2021"
 author:
   - Kevin See:
       email: Kevin.See@dfw.wa.gov
@@ -309,7 +309,7 @@ all_rch <- index_rch %>%
 
 # Goal
 
-To compile all the steelhead redd data collected in the Wenatchee between 2004 and 2013, apply PIT tag based escapement estimates where appropriate and the single observer error model where appropriate to estimate the true number of steelhead redds and spawners in the Wenatchee each year. 
+To compile all the steelhead redd data collected in the Wenatchee between 2004 and 2013, apply PIT tag based escapement estimates where appropriate and the single observer error model where appropriate to estimate the true number of steelhead redds and spawners in the Wenatchee each year. We've also compiled all of our work from 2014 - 2021, using the two-observer redd error model, to generate a complete time-series of our best estimates of hatchery and natural origin steelhead in the Wenatchee. 
 
 # Methods
 
@@ -1347,7 +1347,7 @@ all_redds %>%
 
 ```
 
-```{r}
+```{r, eval = F}
 river_est <- all_redds %>%
   filter(method == "Index") %>%
   select(year, river,
@@ -1411,7 +1411,7 @@ river_est <- all_redds %>%
 
 ## Redds to Spawners
 
-To translate estimates of redds to estimates of spawners by origin, we need data on the fish / redd to move from redds to total spawners and the proportion of hatchery origin spawners (pHOS) to split total spawners into hatchery and natural origin.  
+To translate estimates of redds to estimates of spawners by origin, we need data on the fish / redd to move from redds to total spawners and the proportion of hatchery origin spawners (pHOS) to split total spawners into hatchery and natural origin. The fish / redd estimate comes from the sex ratio, assuming one redd per female (Males / Females + 1). 
 
 ```{r}
 fpr_df <- read_excel(data_file,
@@ -1443,37 +1443,53 @@ fpr_df <- read_excel(data_file,
 ```
 
 ```{r spawner-origin}
-spwn_org_redd <- all_redds %>%
-  filter(method != "Index") %>%
-  # bind_rows(river_est) %>%
-  # filter(year < 2011) %>%
-  group_by(year,
+spwn_org_redd_river_fpr <- all_redds %>%
+  select(year, 
+         river,
+         location,
+         method,
+         err_est,
+         contains("redd")) %>%
+  group_by(year, 
            river,
            location,
            method) %>%
-  summarize(n_rch = n_distinct(reach),
-            across(err_est,
-                   mean),
-            across(c(obs_redds,
-                     redd_est),
-                   sum),
-            across(redd_se,
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop") %>%
-  bind_rows(river_est) %>%
-  group_by(year,
-           river,
-           location) %>%
-  summarize(across(n_rch,
-                   sum),
-            across(err_est,
-                   mean),
-            across(c(obs_redds,
-                     redd_est),
-                   sum),
-            across(redd_se,
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop") %>%
+  nest(redd_df = c(err_est, contains("redd"))) %>%
+  left_join(cor_df %>%
+              mutate(method = "Index")) %>%
+  ungroup() %>%
+  mutate(n_rch = map_int(redd_df,
+                         nrow)) %>%
+  mutate(redd_estimate = map2(redd_df,
+                              cor_mat,
+                              .f = function(x, y) {
+                                tot_df <- x %>%
+                                  summarize(across(err_est,
+                                                   mean),
+                                            across(c(obs_redds,
+                                                     redd_est),
+                                                   sum))
+                                if(is.null(y)) {
+                                  se = sqrt(sum(x$redd_se^2))
+                                } else {
+                                  se = try(deltamethod(as.formula(paste('~', paste0('x', 1:nrow(x), collapse='+'))),
+                                                       mean = x$redd_est,
+                                                       cov = diag(x = x$redd_se,
+                                                                  nrow = nrow(y)) %*% y %*% diag(x = x$redd_se,
+                                                                                                 nrow = nrow(y))),
+                                           silent = T)
+                                  
+                                  if(class(se)[1] == "try-error") {
+                                    se = sqrt(sum(x$redd_se^2))
+                                  }
+                                }
+                                tot_df %<>%
+                                  mutate(redd_se = se)
+                                return(tot_df)
+                              })) %>%
+  select(-redd_df,
+         -cor_mat) %>%
+  unnest(redd_estimate) %>%
   left_join(fpr_df %>%
               select(year,
                      starts_with("fpr"),
@@ -1503,20 +1519,40 @@ spwn_org_redd <- all_redds %>%
                                            fpr_se,
                                            phos_se)^2))) %>%
   ungroup()
-  
+
+# spwn_org_redd_river_fpr %>%
+#   group_by(year) %>%
+#   summarize(across(c(n_rch,
+#                    obs_redds,
+#                    redd_est,
+#                    spawn_est,
+#                    hor_spwn,
+#                    nor_spwn),
+#                    sum),
+#             across(c(redd_se,
+#                      spawn_se,
+#                      hor_se,
+#                      nor_se),
+#                    ~ sqrt(sum(.^2))),
+#             across(c(fpr,
+#                      phos),
+#                    mean)) %>%
+#   select(any_of(names(spwn_org_redd_river_fpr)))
+
 ```
 
 
 ## Tributary Spawners
 
-From 2011 onwards, we used the DABOM model to estimate tributary spawners. We assumed that every fish that escaped into a tributary was a successful spawner. Because counts at Priest Rapids dam have been questionable in recent years, we used DABOM estimates calculated based on counts at Rock Island dam for all years (to be consistent).
+From 2011 onwards, we used the DABOM model to estimate tributary spawners. We assumed that every fish that escaped into a tributary was a successful spawner. Because counts at Priest Rapids dam have been questionable in recent years, we used DABOM estimates calculated based on counts at Rock Island dam for 2016, 2017, 2019, 2020 and 2021 (estimates in 2018 were very similar regardless of whether Priest or Rock Island counts were used, so we used Priest that year).
 
 ```{r}
-# what dam count to use?
-dam_cnt_name = c("PriestRapids",
-                 "RockIsland")[2]
+# # what dam count to use?
+# dam_cnt_name = c("PriestRapids",
+#                  "RockIsland")[2]
 
 pit_list <- tibble(year = 2011:2021) %>%
+  # what dam count to use?
   mutate(dam_cnt_name = if_else(year %in% c(2016:2017, 2019:2021),
                                 "RockIsland",
                                 "PriestRapids")) %>%
@@ -1749,90 +1785,31 @@ spwn_2020 = pit_est %>%
 
 ```
 
-
-```{r}
-spwn_org_est <- spwn_org_redd %>%
-  add_column(method = "Redd",
-             after = 2) %>%
-  bind_rows(trib_pit_est %>%
-              mutate(method = "PIT")) %>%
-  select(year, river,
-         method,
-         n_rch,
-         starts_with("hor"),
-         starts_with("nor")) %>%
-  arrange(year, river,
-          method) %>%
-  group_by(year) %>%
-  summarize(across(ends_with("spwn"),
-                   sum),
-            across(ends_with("se"),
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop")
-  
-
-
-```
-
 ```{r}
 # redo 2011-2013 with location specific fpr and pHOS from PIT tags
-spwn_org_redd_pit <- all_redds %>%
-  filter(method != "Index",
-         between(year, 2011, 2013)) %>%
-  group_by(year,
-           river,
-           location,
-           method) %>%
-  summarize(n_rch = n_distinct(reach),
-            across(err_est,
-                   mean),
-            across(c(obs_redds,
-                     redd_est),
-                   sum),
-            across(redd_se,
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop") %>%
-  bind_rows(river_est %>%
-              filter(between(year, 2011, 2013))) %>%
-  group_by(year,
-           river,
-           location) %>%
-  summarize(across(n_rch,
-                   sum),
-            across(err_est,
-                   mean),
-            across(c(obs_redds,
-                     redd_est),
-                   sum),
-            across(redd_se,
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop") %>%
+spwn_org_redd <- spwn_org_redd_river_fpr %>%
   left_join(pit_sex_org %>%
               select(year,
                      location,
-                     starts_with("fpr"),
-                     starts_with("phos")),
+                     fpr_pit = fpr,
+                     fpr_pit_se = fpr_se,
+                     phos_pit = phos,
+                     phos_pit_se = phos_se),
             by = c("year",
                    "location")) %>%
-  left_join(fpr_df %>%
-              select(year,
-                     fpr_all = fpr,
-                     fpr_all_se = fpr_se,
-                     phos_all = phos,
-                     phos_all_se = phos_se)) %>%
-  mutate(fpr = if_else(is.na(fpr),
-                       fpr_all,
+  mutate(fpr = if_else(!is.na(fpr_pit),
+                       fpr_pit,
                        fpr),
-         fpr_se = if_else(is.na(fpr_se),
-                       fpr_all_se,
+         fpr_se = if_else(!is.na(fpr_pit_se),
+                       fpr_pit_se,
                        fpr_se),
-         phos = if_else(is.na(phos),
-                       phos_all,
+         phos = if_else(!is.na(phos_pit),
+                       phos_pit,
                        phos),
-         phos_se = if_else(is.na(phos_se),
-                       phos_all_se,
+         phos_se = if_else(!is.na(phos_pit_se),
+                       phos_pit_se,
                        phos_se)) %>%
-  select(-contains("_all")) %>%
+  select(-contains("_pit")) %>%
   rowwise() %>%
   mutate(spawn_est = redd_est * fpr,
          spawn_se = deltamethod(~ x1 * x2,
@@ -1858,17 +1835,29 @@ spwn_org_redd_pit <- all_redds %>%
                                            phos_se)^2))) %>%
   ungroup()
 
-spwn_org_redd %>%
-  anti_join(spwn_org_redd_pit,
-            by = c("year",
-                   "river",
-                   "location",
-                   "n_rch")) %>%
-  bind_rows(spwn_org_redd_pit) %>%
-  arrange(year,
-          river,
-          location) -> spwn_org_redd
-  
+```
+
+```{r}
+# spwn_org_est <- spwn_org_redd_river_fpr %>%
+spwn_org_est <- spwn_org_redd %>%
+  add_column(method_est = "Redd",
+             after = 2) %>%
+  bind_rows(trib_pit_est %>%
+              mutate(method_est = "PIT")) %>%
+  select(year, river,
+         method = method_est,
+         n_rch,
+         starts_with("hor"),
+         starts_with("nor")) %>%
+  arrange(year, river,
+          method) %>%
+  group_by(year) %>%
+  summarize(across(ends_with("spwn"),
+                   sum),
+            across(ends_with("se"),
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop")
+
 ```
 
 
@@ -1876,7 +1865,9 @@ spwn_org_redd %>%
 
 For some tribs that never had redd surveys, but do have PIT tag arrays (Chiwaukum, Chumstick and Misson), we estimated the portion of the hatchery and natural origin spawners that were estimated in those tributaries for 2014 - 2021, excluding 2020 because our estimates of mainstem spawners in 2020 were done with a different method due to COVID preventing redd surveys from occurring. We calculated the mean proportion of spawners by tributary, across the years we had estimates for. Years when no PIT tags were detected in a particular tributaries were not included in that mean (since that may be an underestimate of the number of spawners in that tributary). The proportions were then summed across all three tributaries to estimate what proportion of the total run, by origin, that spawned in those tributaries. 
 
-We then expanded the estimates of spawners in the total Wenatchee by this proportion, to account for the fact that no redd surveys were conducted in those tributaries, and so any steelhead spawners there were missing from estimates in 2004-2010. We did not expand estimates for 2011-2013, because we did have PIT tag estimates of escpement to those tributaries for those years. 
+We then expanded the estimates of spawners in the total Wenatchee for 2004-2010 by this proportion, to account for the fact that no redd surveys were conducted in those tributaries, and so any steelhead spawners there were missing from estimates in those years. We did not expand estimates for 2011-2013, because we did have PIT tag estimates of escapement to those tributaries for those years. 
+
+This process also allowed us to compile the redd and spawner estimates from 2014-2021, which utilized the two-observer redd observer error model from @Murdoch2018 for the mainstem spawners (redd counts) and PIT-tag based estimates of escapement to all the tributaries. This includes some redds counted in tributaries downstream of the PIT tag arrays. For these, we assumed no observer error, and applied the fish/redd and pHOS estimate from that tributary based on observed PIT tags in that tributary.
 
 ```{r recent-spawners, cache = T}
 # skip 2020 because we did it differently that year
@@ -2036,8 +2027,6 @@ all_wen_df %<>%
                             .f = function(x) {
                               x %>%
                                 nest(net_err = c(err_est, err_se)) %>%
-                                # filter(tot_obs_redds > min_redds,
-                                #        n_non_zero >= min_non0_wks) %>%
                                 mutate(gauc_list = map2(mod_data,
                                                         net_err,
                                                         .f = function(mod_df,
@@ -2100,108 +2089,108 @@ all_wen_df %<>%
                                                                    'Above_TUM'))) %>%
                                  return()
                              })) %>%
-  mutate(river_est = map(redd_results,
-                             .f = function(x) {
-                               redd_tot <- x %>%
-                                 group_by(river,
-                                          # location,
-                                          index) %>%
-                                 summarize(across(err_est,
-                                                  mean),
-                                           across(c(tot_obs_redds,
-                                                    redd_est),
-                                                  sum),
-                                           across(redd_se,
-                                                  ~ sqrt(sum(.^2))),
-                                           .groups = "drop") %>%
-                                 rename(redd_se_naive = redd_se)
-
-
-                               z = x %>%
-                                 select(river,
-                                        index,
-                                        err_est,
-                                        contains("redd")) %>%
-                                 group_by(river,
-                                          index) %>%
-                                 nest(redd_df = c(err_est, contains("redd")))
-
-                               x %>%
-                                 select(river,
-                                        reach,
-                                        index,
-                                        data) %>%
-                                 unnest(data) %>%
-                                 select(river,
-                                        reach,
-                                        index,
-                                        survey_date,
-                                        new_redds) %>%
-                                 group_by(river,
-                                          index) %>%
-                                 nest() %>%
-                                 ungroup() %>%
-                                 full_join(z,
-                                           by = c("river", "index")) %>%
-                                 mutate(cor_mat = map(data,
-                                                      .f = function(y) {
-                                                        if(is.null(y)) {
-                                                          return(NULL)
-                                                        }
-                                                        cor_mat = try(y %>%
-                                                                        group_by(reach) %>%
-                                                                        mutate(survey = 1:n()) %>%
-                                                                        ungroup() %>%
-                                                                        select(reach, survey, new_redds) %>%
-                                                                        pivot_wider(names_from = reach,
-                                                                                    values_from = new_redds) %>%
-                                                                        select(-survey) %>%
-                                                                        cor(use = "pairwise",
-                                                                            # method = 'kendall')
-                                                                            method = 'spearman'),
-                                                                      silent = T)
-
-                                                        if(class(cor_mat)[1] == 'try-error') {
-                                                          return(diag(1, nrow = 1))
-                                                        } else {
-                                                          cor_mat[is.na(cor_mat)] = 0
-                                                          diag(cor_mat) = 1
-                                                          return(cor_mat)
-                                                        }
-                                                      })) %>%
-                                 mutate(redd_estimate = map2(redd_df,
-                                                             cor_mat,
-                                                             .f = function(x, y) {
-                                                               tot_df <- x %>%
-                                                                 summarize(across(err_est,
-                                                                                  mean),
-                                                                           across(c(tot_obs_redds,
-                                                                                    redd_est),
-                                                                                  sum))
-
-                                                               se = try(deltamethod(as.formula(paste('~', paste0('x', 1:nrow(x), collapse='+'))),
-                                                                                    mean = x$redd_est,
-                                                                                    cov = diag(x = x$redd_se,
-                                                                                               nrow = nrow(y)) %*% y %*% diag(x = x$redd_se,
-                                                                                                                              nrow = nrow(y))),
-                                                                        silent = T)
-
-                                                               if(class(se)[1] == "try-error") {
-                                                                 se = sqrt(sum(x$redd_se^2))
-                                                               }
-                                                               tot_df %<>%
-                                                                 mutate(redd_se = se)
-                                                               return(tot_df)
-                                                             })) %>%
-                                 select(-data,
-                                        -redd_df,
-                                        -cor_mat) %>%
-                                 unnest(redd_estimate) %>%
-                                 full_join(redd_tot,
-                                           by = c("river", "index", "err_est", "tot_obs_redds", "redd_est")) %>%
-                                 rename(obs_redds = tot_obs_redds) %>%
-                                 return()
-                             })) %>%
+  # mutate(river_est = map(redd_results,
+  #                            .f = function(x) {
+  #                              redd_tot <- x %>%
+  #                                group_by(river,
+  #                                         # location,
+  #                                         index) %>%
+  #                                summarize(across(err_est,
+  #                                                 mean),
+  #                                          across(c(tot_obs_redds,
+  #                                                   redd_est),
+  #                                                 sum),
+  #                                          across(redd_se,
+  #                                                 ~ sqrt(sum(.^2))),
+  #                                          .groups = "drop") %>%
+  #                                rename(redd_se_naive = redd_se)
+  # 
+  # 
+  #                              z = x %>%
+  #                                select(river,
+  #                                       index,
+  #                                       err_est,
+  #                                       contains("redd")) %>%
+  #                                group_by(river,
+  #                                         index) %>%
+  #                                nest(redd_df = c(err_est, contains("redd")))
+  # 
+  #                              x %>%
+  #                                select(river,
+  #                                       reach,
+  #                                       index,
+  #                                       data) %>%
+  #                                unnest(data) %>%
+  #                                select(river,
+  #                                       reach,
+  #                                       index,
+  #                                       survey_date,
+  #                                       new_redds) %>%
+  #                                group_by(river,
+  #                                         index) %>%
+  #                                nest() %>%
+  #                                ungroup() %>%
+  #                                full_join(z,
+  #                                          by = c("river", "index")) %>%
+  #                                mutate(cor_mat = map(data,
+  #                                                     .f = function(y) {
+  #                                                       if(is.null(y)) {
+  #                                                         return(NULL)
+  #                                                       }
+  #                                                       cor_mat = try(y %>%
+  #                                                                       group_by(reach) %>%
+  #                                                                       mutate(survey = 1:n()) %>%
+  #                                                                       ungroup() %>%
+  #                                                                       select(reach, survey, new_redds) %>%
+  #                                                                       pivot_wider(names_from = reach,
+  #                                                                                   values_from = new_redds) %>%
+  #                                                                       select(-survey) %>%
+  #                                                                       cor(use = "pairwise",
+  #                                                                           # method = 'kendall')
+  #                                                                           method = 'spearman'),
+  #                                                                     silent = T)
+  # 
+  #                                                       if(class(cor_mat)[1] == 'try-error') {
+  #                                                         return(diag(1, nrow = 1))
+  #                                                       } else {
+  #                                                         cor_mat[is.na(cor_mat)] = 0
+  #                                                         diag(cor_mat) = 1
+  #                                                         return(cor_mat)
+  #                                                       }
+  #                                                     })) %>%
+  #                                mutate(redd_estimate = map2(redd_df,
+  #                                                            cor_mat,
+  #                                                            .f = function(x, y) {
+  #                                                              tot_df <- x %>%
+  #                                                                summarize(across(err_est,
+  #                                                                                 mean),
+  #                                                                          across(c(tot_obs_redds,
+  #                                                                                   redd_est),
+  #                                                                                 sum))
+  # 
+  #                                                              se = try(deltamethod(as.formula(paste('~', paste0('x', 1:nrow(x), collapse='+'))),
+  #                                                                                   mean = x$redd_est,
+  #                                                                                   cov = diag(x = x$redd_se,
+  #                                                                                              nrow = nrow(y)) %*% y %*% diag(x = x$redd_se,
+  #                                                                                                                             nrow = nrow(y))),
+  #                                                                       silent = T)
+  # 
+  #                                                              if(class(se)[1] == "try-error") {
+  #                                                                se = sqrt(sum(x$redd_se^2))
+  #                                                              }
+  #                                                              tot_df %<>%
+  #                                                                mutate(redd_se = se)
+  #                                                              return(tot_df)
+  #                                                            })) %>%
+  #                                select(-data,
+  #                                       -redd_df,
+  #                                       -cor_mat) %>%
+  #                                unnest(redd_estimate) %>%
+  #                                full_join(redd_tot,
+  #                                          by = c("river", "index", "err_est", "tot_obs_redds", "redd_est")) %>%
+  #                                rename(obs_redds = tot_obs_redds) %>%
+  #                                return()
+  #                            })) %>%
   mutate(loc_est = map(redd_results,
                              .f = function(x) {
                                redd_tot <- x %>%
@@ -2306,21 +2295,12 @@ all_wen_df %<>%
 
 ```
 
-```{r, eval = F}
+```{r, eval = T}
 # use fish/redd and pHOS estimates from the entire river based on Dryden sampling 
-recent_spwn_redd <- all_wen_df %>%
+recent_spwn_redd_river_fpr <- all_wen_df %>%
   select(year,
-         river_est) %>%
-  unnest(river_est) %>%
-  group_by(year) %>%
-  summarize(across(err_est,
-                   mean),
-            across(c(obs_redds,
-                     redd_est),
-                   sum),
-            across(redd_se,
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop") %>%
+         loc_est) %>%
+  unnest(loc_est) %>%
   left_join(fpr_df %>%
               select(year,
                      starts_with("fpr"),
@@ -2350,30 +2330,6 @@ recent_spwn_redd <- all_wen_df %>%
                                            fpr_se,
                                            phos_se)^2))) %>%
   ungroup()
-
-recent_spwn_all <- recent_spwn_redd %>%
-              select(year,
-                     starts_with("hor"),
-                     starts_with("nor")) %>%
-              bind_rows(trib_spawners_all %>%
-                          filter(year %in% recent_spwn_redd$year) %>%
-                          group_by(year) %>%
-                          summarize(across(ends_with("spwn"),
-                                           sum),
-                                    across(ends_with("se"),
-                                           ~ sqrt(sum(.^2))),
-                                    .groups = "drop")) %>%
-              group_by(year) %>%
-              summarize(across(ends_with("spwn"),
-                               sum),
-                        across(ends_with("se"),
-                               ~ sqrt(sum(.^2))),
-                        .groups = "drop") %>%
-              rename(tot_hor_spwn = hor_spwn,
-                     tot_nor_spwn = nor_spwn,
-                     tot_hor_se = hor_se,
-                     tot_nor_se = nor_se)
-
 ```
 
 ```{r}
@@ -2418,33 +2374,21 @@ recent_spwn_redd <- all_wen_df %>%
                               cov = diag(c(redd_se,
                                            fpr_se,
                                            phos_se)^2))) %>%
-  ungroup() %>%
-  group_by(year) %>%
-  summarize(across(c(obs_redds,
-                     redd_est,
-                     spawn_est,
-                     hor_spwn,
-                     nor_spwn),
-                   sum),
-            across(c(redd_se,
-                     spawn_se,
-                     hor_se,
-                     nor_se),
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop")
+  ungroup()
 
+```
+
+
+```{r}
 recent_spwn_all <- recent_spwn_redd %>%
               select(year,
+                     location,
+                     index,
                      starts_with("hor"),
                      starts_with("nor")) %>%
               bind_rows(trib_spawners_all %>%
                           filter(year %in% recent_spwn_redd$year) %>%
-                          group_by(year) %>%
-                          summarize(across(ends_with("spwn"),
-                                           sum),
-                                    across(ends_with("se"),
-                                           ~ sqrt(sum(.^2))),
-                                    .groups = "drop")) %>%
+                          rename(location = river)) %>%
               group_by(year) %>%
               summarize(across(ends_with("spwn"),
                                sum),
@@ -2463,10 +2407,16 @@ recent_spwn_all <- recent_spwn_redd %>%
 ```{r prop-tribs}
 # get the proportion of trib spawners
 prop_trib <- trib_spawners_all %>%
-  filter(year %in% recent_spwn_redd$year,
+  filter(between(year, 2011, max(recent_spwn_all$year)),
          river %in% unique(method_df$river[method_df$method == "Expansion"])) %>%
   # add redd spawner estimates and PIT spawner estimates to get total
-  left_join(recent_spwn_all) %>%
+  left_join(recent_spwn_all %>%
+              bind_rows(spwn_org_est %>%
+                          filter(between(year, 2011, 2013)) %>%
+                          rename_with(function(x) paste0("tot_", x),
+                                      .cols = -year)) %>%
+              arrange(year)) %>%
+  filter(!is.na(tot_hor_spwn)) %>%
   mutate(hor_prop = hor_spwn / tot_hor_spwn,
          nor_prop = nor_spwn / tot_nor_spwn) %>%
   rowwise() %>%
@@ -2550,21 +2500,59 @@ spwn_org_expnd <- spwn_org_est %>%
 
 ## Redd Estimates
 
-Table \@ref(tab:redd-est-tab) shows the estimate of total redds for every reach in every year 
+Tables \@ref(tab:redd-est-tab) and \@ref(tab:redd-recent-est-tab) show the estimate of total redds for every reach in every year.
 
 ```{r redd-est-tab}
 all_redds %>%
   mutate(across(year,
                 as.factor)) %>%
+  arrange(year,
+          reach) %>%
+  # filter(obs_redds > 0) %>%
   kbl(booktabs = T,
       linesep = "",
       format.args = list(big.mark = ","),
       digits = c(rep(0, 5),
                  3, 3,
                  0, 1),
-      caption = "Estimates of redds (and SE) for all reaches. The method (Index, Non-Index or Census) and total number of observed redds is noted, as well as the mean net error (with standard error).") %>%
+      caption = "Estimates of redds (and SE) for all reaches in years 2004 - 2013. The method (Index, Non-Index or Census) and total number of observed redds is noted, as well as the mean net error (with standard error).") %>%
   kable_styling()
 ```
+
+```{r redd-recent-est-tab}
+all_wen_df %>% 
+  select(year, redd_results) %>% 
+  unnest(redd_results) %>% 
+  select(year, river, location, 
+         reach, method = index, 
+         obs_redds = tot_obs_redds, 
+         err_est, err_se, 
+         redd_est, redd_se) %>% 
+  mutate(across(method,
+                recode,
+                "Y" = "Index",
+                "N" = "Non-Index")) %>%
+  mutate(across(c(year,
+                  reach),
+                as.factor),
+         across(reach,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  arrange(year,
+          reach) %>%
+  filter(obs_redds > 0) %>%
+  kbl(booktabs = T,
+      linesep = "",
+      format.args = list(big.mark = ","),
+      digits = c(rep(0, 5),
+                 3, 3,
+                 0, 1),
+      caption = "Estimates of redds (and SE) for all reaches in more recent years where redds were observed. The method (Index, Non-Index) and total number of observed redds is noted, as well as the mean net error (with standard error).") %>%
+  kable_styling()
+  
+```
+
 
 ## Spawner Estimates
 
@@ -2572,11 +2560,12 @@ Table \@ref(tab:spwn-redd-tab) shows the estimates of spawners for areas with re
 
 ```{r spwn-redd-tab}
 spwn_org_redd %>%
-  select(-starts_with("spawn")) %>%
+  # select(-starts_with("spawn")) %>%
   group_by(year) %>%
   summarize(across(c(n_rch,
                      obs_redds,
                      redd_est,
+                     spawn_est,
                      hor_spwn,
                      nor_spwn),
                    sum),
@@ -2585,6 +2574,7 @@ spwn_org_redd %>%
                      starts_with("phos")),
                    mean),
             across(c(redd_se,
+                     spawn_se,
                      hor_se,
                      nor_se),
                    ~ sqrt(sum(.^2))),
@@ -2599,6 +2589,7 @@ spwn_org_redd %>%
                  0, 0, 1,
                  2, 2,
                  3, 3,
+                 0, 1,
                  0, 1,
                  0, 1),
       caption = "Estimates of spawners, by origin, based on redd, fish/redd and pHOS estimates.") %>%
@@ -2639,7 +2630,7 @@ trib_pit_est %>%
 
 ## Initial Total Spawners
 
-Table \@ref(tab:init-spwn-tab) shows the initial estimates, by origin, of spawners for spawn years 2004-2013. This only includes areas surveyed for redds. Some of those areas had the redd surveys replaced by PIT tag escapement estimates in later years. 
+Table \@ref(tab:init-spwn-tab) shows the initial estimates, by origin, of spawners for spawn years 2004-2013. This only includes areas surveyed for redds or that had PIT tag escapement estimates (some tributaries in 2011-2013). Some of those areas had the redd surveys replaced by PIT tag escapement estimates in later years. 
 
 ```{r init-spwn-tab}
 spwn_org_est %>%
@@ -2698,8 +2689,10 @@ wen_spwn <- spwn_org_expnd %>%
 
 ```{r save-ts}
 # save as csv
-write.csv(wen_spwn,
-          file = here("outgoing",
+wen_spwn %>%
+  mutate(across(ends_with("spwn"),
+                round_half_up)) %>%
+  write_csv(file = here("analysis/data/derived_data",
                       "Wenatchee_Sthd_Spwn_2004-2021.csv"))
 ```
 
@@ -2719,9 +2712,18 @@ wen_spwn %>%
   kable_styling()
 ```
 
-```{r spwn-ts, fig.cap = "Time-series of spawner estimates, facted by origin. Dark gray error bars show the 95% confidence intervals."}
+```{r spwn-ts, fig.cap = "Time-series of spawner estimates, facted by origin. Colors show the estimation method. Error bars show the 95% confidence intervals."}
 wen_spwn %>%
-  pivot_longer(cols = -year,
+  mutate(Method = if_else(year == 2020,
+                          "RT Survival",
+                          if_else(year < 2011,
+                                  "1 Obs Model",
+                                  if_else(between(year, 2011, 2013),
+                                          "1 Obs Model + PIT",
+                                          if_else(year > 2013,
+                                                  "2 Obs Model + PIT",
+                                                  NA_character_))))) %>%
+  pivot_longer(cols = -c(year, Method),
                names_to = "origin",
                values_to = "value") %>%
   mutate(metric = if_else(str_detect(origin, "se"),
@@ -2740,15 +2742,18 @@ wen_spwn %>%
                 "hor" = "Hatchery",
                 "nor" = "Natural")) %>% 
   ggplot(aes(x = year,
-             y = spwn)) +
+             y = spwn,
+             color = Method)) +
   geom_errorbar(aes(ymin = qnorm(0.025, spwn, se),
                     ymax = qnorm(0.975, spwn, se)),
-                width = 0.1,
-                color = "gray60") +
-  geom_point() +
-  geom_line() +
+                # color = "gray60",
+                width = 0) +
+  geom_point(size = 2) +
+  # geom_line() +
   facet_wrap(~ origin,
              ncol = 1) +
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "bottom") +
   labs(x = "Year",
        y = "Spawners")
 ```
