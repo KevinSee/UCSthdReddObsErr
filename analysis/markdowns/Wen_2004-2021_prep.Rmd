@@ -1719,35 +1719,29 @@ rt_df %<>%
                 fct_explicit_na,
                 na_level = "Total"))
 
-spwn_2020 = pit_est %>%
+
+spwn_main_2020 = pit_est %>%
   filter(year == 2020,
-         location %in% c("LWE_bb",
-                         "TUM_bb")) %>%
+         location %in% c("LWE")) %>%
   mutate(across(origin,
                 recode,
                 "H" = "hor",
-                "W" = "nor"),
-         across(location,
-                recode,
-                "LWE_bb" = "Below_TUM",
-                "TUM_bb" = "Above_TUM")) %>%
+                "W" = "nor")) %>%
   left_join(removal_df %>%
-              select(year = Year,
-                     origin = Origin,
-                     location = Area,
-                     rem) %>%
+              group_by(year = Year,
+                       origin = Origin) %>%
+              summarize(across(rem,
+                               sum)) %>%
               mutate(across(origin,
                             recode,
                             "Hatchery" = "hor",
-                            "Natural" = "nor"),
-                     across(location,
-                            recode,
-                            "TUM_bb" = "Above_TUM"))) %>%
+                            "Natural" = "nor"))) %>%
   rowwise() %>%
   mutate(escp = max(0, mean - rem)) %>%
   ungroup() %>%
   select(year, origin, location,
-         escp, se = sd) %>%
+         mean, rem,
+         escp, escp_se = sd) %>%
   full_join(rt_df %>%
               mutate(across(Origin,
                             recode,
@@ -1763,25 +1757,61 @@ spwn_2020 = pit_est %>%
               select(-ends_with("fish"))) %>%
   rowwise() %>%
   mutate(spwn = escp * phi) %>%
-  mutate(se = msm::deltamethod(~ x1 * x2,
+  mutate(spwn_se = msm::deltamethod(~ x1 * x2,
                                         mean = c(escp, phi),
-                                        cov = diag(c(se, phi_se)^2))) %>%
+                                        cov = diag(c(escp_se, phi_se)^2))) %>%
   ungroup() %>%
   select(year, origin,
-         river = location,
-         spwn, se) %>%
+         # river = location,
+         mean,
+         rem,
+         escp,
+         phi,
+         spwn, 
+         spwn_se) %>%
+  left_join(trib_spawners_all %>%
+              pivot_longer(cols = c(starts_with("hor"),
+                                    starts_with("nor")),
+                           names_to = "source",
+                           values_to = "value") %>%
+              mutate(origin = if_else(str_detect(source, "hor"),
+                                      "hor",
+                                      "nor"),
+                     estimate = if_else(str_detect(source, "se"),
+                                        "se",
+                                        "est")) %>%
+              select(-source) %>%
+              pivot_wider(names_from = estimate,
+                          values_from = value) %>%
+              group_by(year,
+                       origin) %>%
+              summarize(across(est,
+                               sum),
+                        across(se,
+                               ~ sqrt(sum(.^2))),
+                        .groups = "drop") %>%
+              rename(trib_spwn = est,
+                     trib_se = se)) %>%
+  mutate(main_spwn = spwn - trib_spwn,
+         main_se = sqrt(spwn_se^2 + trib_se^2)) %>%
+  select(year, origin,
+         spwn = main_spwn,
+         se = main_se) %>%
+  mutate(across(spwn,
+                ~ if_else(. < 0, 0, .))) %>%
   pivot_wider(names_from = origin,
               values_from = c(spwn, se),
-              names_glue = "{origin}_{.value}") %>%
+              names_glue = "{origin}_{.value}")  
+
+# add tributary spawners
+spwn_2020 <- spwn_main_2020 %>%
   bind_rows(trib_spawners_all %>%
-              filter(year == 2020)) %>%
+              filter(year == "2020")) %>%
   group_by(year) %>%
   summarize(across(ends_with("spwn"),
                    sum),
             across(ends_with("se"),
-                   ~ sqrt(sum(.^2))),
-            .groups = "drop")
-  
+                   ~ sqrt(sum(.^2))))
 
 ```
 
@@ -2683,6 +2713,7 @@ wen_spwn <- spwn_org_expnd %>%
   bind_rows(recent_spwn_all %>%
               rename_with(function(x) str_remove(x, "tot_"))) %>%
   bind_rows(spwn_2020) %>%
+  ungroup() %>%
   arrange(year)
 ```
 
