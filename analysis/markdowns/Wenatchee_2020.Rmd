@@ -10,17 +10,6 @@ institute:
   - biomark: Biomark, Inc.
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_ABS.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
-      - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
       fig_height: 6
@@ -34,6 +23,17 @@ output:
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_ABS.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -155,12 +155,14 @@ rt_df %<>%
                 na_level = "Total"))
 ```
 
-```{r spawner-estimate}
-spwn_main = escp_wen %>%
-  filter(Area != "Wen_all") %>%
+```{r}
+spwn_df <- escp_wen %>%
   ungroup() %>%
+  filter(Area == "Wen_all") %>%
   left_join(rem_df %>%
-              select(-Source)) %>%
+              group_by(Origin) %>%
+              summarize(across(rem,
+                               sum))) %>%
   rowwise() %>%
   mutate(escp = max(0, estimate - rem)) %>%
   ungroup() %>%
@@ -173,12 +175,58 @@ spwn_main = escp_wen %>%
                      phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
               select(-ends_with("fish"))) %>%
   rowwise() %>%
-  mutate(Spawners = escp * phi) %>%
-  mutate(Spawners_SE = msm::deltamethod(~ x1 * x2,
+  mutate(all_spwn = escp * phi) %>%
+  mutate(all_spwn_se = msm::deltamethod(~ x1 * x2,
                                         mean = c(escp, phi),
                                         cov = diag(c(se, phi_se)^2))) %>%
   ungroup() %>%
-  rename(Location = Area)
+  left_join(trib_spawners %>%
+              group_by(Origin) %>%
+              summarize(across(Spawners,
+                               sum),
+                        across(Spawners_SE,
+                               ~ sqrt(sum(.^2))),
+                        .groups = "drop") %>%
+              rename(trib_spwn = Spawners,
+                     trib_se = Spawners_SE)) %>%
+  mutate(main_spwn = all_spwn - trib_spwn,
+         main_spwn_se = sqrt(all_spwn_se^2 + trib_se^2),
+         across(main_spwn,
+                ~ if_else(. < 0, 0, .)))
+
+spwn_main = spwn_df %>%
+  mutate(Location = "Mainstem") %>%
+  select(Origin,
+         Location,
+         Spawners = main_spwn,
+         Spawners_SE = main_spwn_se)
+```
+
+
+```{r spawner-estimate}
+# spwn_main = escp_wen %>%
+#   filter(Area != "Wen_all") %>%
+#   ungroup() %>%
+#   left_join(rem_df %>%
+#               select(-Source)) %>%
+#   rowwise() %>%
+#   mutate(escp = max(0, estimate - rem)) %>%
+#   ungroup() %>%
+#   full_join(rt_df %>%
+#               group_by(Origin) %>%
+#               summarize(across(c(ow_fish, surv_fish),
+#                                sum),
+#                         .groups = "drop") %>%
+#               mutate(phi = surv_fish / ow_fish,
+#                      phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
+#               select(-ends_with("fish"))) %>%
+#   rowwise() %>%
+#   mutate(Spawners = escp * phi) %>%
+#   mutate(Spawners_SE = msm::deltamethod(~ x1 * x2,
+#                                         mean = c(escp, phi),
+#                                         cov = diag(c(se, phi_se)^2))) %>%
+#   ungroup() %>%
+#   rename(Location = Area)
 
 spwn_strm = spwn_main %>%
   select(any_of(names(trib_spawners))) %>%
@@ -193,8 +241,9 @@ spwn_strm = spwn_main %>%
                            'past_NAL' = 'Nason',
                            'past_PES' = 'Peshastin',
                            'past_WTL' = 'White River'),
-         Location = factor(Location, levels = c('Below_TUM',
-                                                'TUM_bb',
+         Location = factor(Location, levels = c("Mainstem",
+                                                # 'Below_TUM',
+                                                # 'TUM_bb',
                                                 'Icicle', 
                                                 'Peshastin', 
                                                 'Mission', 
@@ -231,7 +280,7 @@ Estimates of escapement to various tributaries in the Wenatchee were made using 
 
 ### Overwinter survival
 
-Estimates of overwinter survival in the mainstem Wenatchee come from a radio telemetry study, conducted over two years (2015 and 2016) in the Wenatchee [@Fuchs_review]. Steelhead in the study were both radio and PIT tagged, and zero mortality was observed in fish once they entered the tributaries of the Wenatchee. Tags were combined across both years of the study, since we are making the assumption that overwinter survival is consistent year to year. 
+Estimates of overwinter survival in the Wenatchee subbasin come from a radio telemetry study, conducted over two years (2015 and 2016) in the Wenatchee [@Fuchs_review]. Steelhead in the study were both radio and PIT tagged, and zero mortality was observed in fish once they entered the tributaries of the Wenatchee. Tags were combined across both years of the study, since we are making the assumption that overwinter survival is consistent year to year. 
 
 ```{r rt-table}
 rt_df %>%
@@ -271,7 +320,7 @@ rem_df %>%
 
 ## Analysis
 
-Due to a lack of redd counts in 2020, we instead start with estimates of escapement from the PIT-tag based patch-occupancy model. As we are assuming that all the fish that escaped to the tributaries were spawners, we only need to update the escapement estimates of the mainstem areas. The patch-occupancy model contains estimates for two mainstem areas: above and below Tumwater dam. First we subtract known removals from each of those areas, based on \@ref(tab:removals); Dryden removals are subtracted from below Tumwater, and Tumwater removals are substracted from above Tumwater. Then we apply the overwinter survival estimates from the radio telemetry study, by origin. We then assume that all the fish that survived the winter and remained in the mainstem were spawners. 
+Due to a lack of redd counts in 2020, we instead focus on estimates of escapement from the PIT-tag based patch-occupancy model, by origin. We started with escapement to the entire Wenatchee subbasin (past site LWE), and then subtracted known removals. After this, we applied an overwinter survival estimate to determine how many fish survived to spawn. We determined how many mainstem spawners by subtracting the total number of estimated tributary spawners from the total population level estimate of spawners. 
 
 \newpage
 
@@ -282,22 +331,33 @@ Due to a lack of redd counts in 2020, we instead start with estimates of escapem
 Estimates of mainstem spawners above and below Tumwater dam are shown in Table \@ref(tab:mainstem-spwn). 
 
 ```{r mainstem-spwn}
-spwn_main %>%
-  mutate(Location = recode(Location,
-                           "Below_TUM" = "Below TUM",
-                           "TUM_bb" = "Above TUM")) %>%
-  mutate(across(Spawners,
+spwn_df %>%
+  mutate(Location = "Mainstem") %>%
+  # mutate(Location = recode(Location,
+  #                          "Below_TUM" = "Below TUM",
+  #                          "TUM_bb" = "Above TUM")) %>%
+  mutate(across(main_spwn,
                 round_half_up)) %>%
-  rename(`PO Estimate` = estimate,
+  select(Location,
+         Origin,
+         `PO Estimate` = estimate,
          `PO SE` = se,
          `Removed` = rem,
          Escapement = escp,
          `Overwinter Surv.` = phi,
          `Overwinter SE` = phi_se,
-         `Spawners SE` = Spawners_SE) %>%
+         `Trib Spawners` = trib_spwn,
+         `Trib SE` = trib_se,
+         Spawners = main_spwn,
+         `Spawners SE` = main_spwn_se) %>%
   kable(caption = "Inputs and estimates of mainstem spawners.",
         linesep = "",
-        digits = c(0,0, 0, 1, 0, 0, 3, 3, 0, 1),
+        digits = c(0, 0, 
+                   0, 1, 
+                   0, 0, 
+                   3, 3, 
+                   0, 1,
+                   0, 1),
         booktabs = T) %>%
   kable_styling(bootstrap_options = c("striped", 
                                       "hover"),
@@ -311,15 +371,23 @@ Table \@ref(tab:spawn-est) displays estimates of spawners in all areas within th
 
 ```{r spawn-est}
 spwn_strm %>%
-  mutate(Location = recode(Location,
-                           "Below_TUM" = "Below TUM",
-                           "TUM_bb" = "Above TUM")) %>%
-  bind_rows(spwn_strm %>%
-              group_by(Origin) %>%
-              summarize(Spawners = sum(round_half_up(Spawners)),
-                        Spawners_SE = sqrt(sum(Spawners_SE^2)),
-                        .groups = "drop") %>%
-              mutate(Location = "Total")) %>%
+  # mutate(Location = recode(Location,
+  #                          "Below_TUM" = "Below TUM",
+  #                          "TUM_bb" = "Above TUM")) %>%
+  # bind_rows(spwn_strm %>%
+  #             group_by(Origin) %>%
+  #             summarize(Spawners = sum(round_half_up(Spawners)),
+  #                       Spawners_SE = sqrt(sum(Spawners_SE^2)),
+  #                       .groups = "drop") %>%
+  #             mutate(Location = "Total")) %>%
+  bind_rows(spwn_df %>%
+              mutate(Location = "Total") %>%
+              mutate(across(all_spwn,
+                            round_half_up)) %>%
+              select(Origin,
+                     Location,
+                     Spawners = all_spwn,
+                     Spawners_SE = all_spwn_se)) %>%
   mutate(spwn_cv = Spawners_SE / Spawners,
          spwn_cv = if_else(spwn_cv == Inf, NA_real_, spwn_cv)) %>%
   mutate(prnt_val = paste0(round_half_up(Spawners), " (", if_else(is.na(spwn_cv), '-', as.character(round(spwn_cv, 2))), ")")) %>%
@@ -342,7 +410,7 @@ spwn_strm %>%
 
 # Discussion
 
-Despite the lack of redd count data this year, we were able to estimate the number of spawners, by origin, through applying an empirical estimate of mainstem overwinter survival to escapement estimates to the mainstem areas. When accounting for known removals, the known number of fish removed sometimes exceeded the patch-occupancy estimate to that area, but the removals were within the 95% confidence interval of that estimate. Therefore, in any situation when removals exceeded patch-occupancy estimates, we set escapement equal to zero. This was only applicable to hatchery fish below Tumwater this year. 
+Despite the lack of redd count data this year, we were able to estimate the number of spawners, by origin, through applying an empirical estimate of overwinter survival to total escapement estimates to the subbasin. After accounting for known removals and tributary spawners, the estimates of mainstem spawners for hatchery origin fish did drop below zero. Therefore, we fixed the estimate of mainstem hatchery spawners to zero. 
 
 # Acknowledgements
 
