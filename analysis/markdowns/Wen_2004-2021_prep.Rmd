@@ -1627,7 +1627,8 @@ pit_sex_org = pit_list %>%
                             as.character(Location), 
                             trib)) %>% 
   group_by(year, location) %>% 
-  summarize(n_f = sum(Sex == "F"), 
+  summarize(n_tags = n(),
+            n_f = sum(Sex == "F"), 
             n_m = sum(Sex == "M"), 
             n_nor = sum(Origin == "W"), 
             n_hor = sum(Origin == "H"),
@@ -1646,6 +1647,7 @@ pit_sex_org = pit_list %>%
          phos = n_hor / (n_hor + n_nor),
          phos_se = sqrt((phos * (1 - phos)) / (n_hor + n_nor))) %>%
   select(year, location,
+         n_tags,
          starts_with("fpr"),
          starts_with("phos"))
 

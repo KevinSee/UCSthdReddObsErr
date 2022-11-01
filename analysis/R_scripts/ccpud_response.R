@@ -75,6 +75,26 @@ phi_df <- rt_df %>%
          phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
   select(-ends_with("fish"))
 
+
+phi_df2 <- rt_df %>%
+  mutate(across(Origin,
+                recode,
+                "Hatchery" = "hor",
+                "Natural" = "nor")) %>%
+  rename(origin = Origin) %>%
+  group_by(year, origin) %>%
+  summarize(across(c(ow_fish, surv_fish),
+                   sum),
+            .groups = "drop") %>%
+  mutate(phi = surv_fish / ow_fish,
+         phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
+  filter(year != "Total") %>%
+  group_by(origin) %>%
+  summarize(across(phi,
+                   mean),
+            across(phi_se,
+                   ~ sqrt(mean(.^2))))
+
 main_spwn_df <- recent_spwn_redd %>%
   # bind_rows(spwn_org_redd) %>%
   filter(str_detect(location, "TUM")) %>%
