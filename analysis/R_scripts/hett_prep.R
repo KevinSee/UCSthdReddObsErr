@@ -1,8 +1,8 @@
 # Author: Kevin See
 # Purpose: Pull together relevant data for UC HETT discussion
 # Created: 10/31/22
-# Last Modified: 10/31/2022
-# Notes: focus on 2014 - 2021
+# Last Modified: 11/3/2022
+# Notes: focus on 2014 - 2021 since that's when the two-observer redd surveys were conducted
 
 #-----------------------------------------------------------------
 # load needed libraries
@@ -15,8 +15,15 @@ library(msm)
 library(UCSthdReddObsErr)
 library(PITcleanr)
 library(here)
+library(ggrepel)
+library(ggpubr)
 
 theme_set(theme_bw())
+
+
+#-----------------------------------------------------------------
+# where to save figures
+save_loc <- "O:/Documents/Presentations/2022_HETT/figures/"
 
 #-----------------------------------------------------------------
 # all redd-based methods
@@ -508,10 +515,18 @@ pit_list <- tibble(year = 2011:2021) %>%
                                     Location,
                                     spawn_node,
                                     Origin = origin,
-                                    Sex = sex)
+                                    Sex = sex,
+                                    Age = age)
+
+                           load(paste0("O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/model_fits/",
+                                     'PRA_DABOM_Steelhead_', yr,'.rda'))
+
+                           wen_ch = filter_obs %>%
+                             filter(tag_code %in% wen_tags$TagID)
 
                            list(escp = escape_summ,
-                                tags = wen_tags) %>%
+                                tags = wen_tags,
+                                cap_hist = wen_ch) %>%
                              return()
                          }))
 
@@ -522,6 +537,19 @@ pit_est = pit_list %>%
   unnest(est) %>%
   select(-species,
          -spawn_year)
+
+
+pit_list %>%
+  mutate(ch = map(pit_info,
+                   "cap_hist")) %>%
+  select(-pit_info) %>%
+  unnest(ch) %>%
+  filter(year >= 2014) %>%
+  filter(str_detect(node, "^LWE")) %>%
+  mutate(wen_enter = month(min_det, label = T)) %>%
+  tabyl(year, wen_enter) %>%
+  adorn_percentages() %>%
+  adorn_pct_formatting()
 
 # generate fish/redd and pHOS based on PIT tags
 pit_sex_org = pit_list %>%
@@ -586,7 +614,25 @@ pit_sex_org2 = pit_list %>%
          starts_with("phos"))
 
 
+pit_sex_org_age <- pit_list %>%
+  mutate(tags = map(pit_info,
+                    "tags")) %>%
+  select(-pit_info) %>%
+  unnest(tags) %>%
+  group_by(year) %>%
+  count(Origin, Sex, Age) %>%
+  filter(!is.na(Age)) %>%
+  mutate(fw_chr = str_split(Age, "\\.", simplify = T)[,1],
+         oc_chr = str_split(Age, "\\.", simplify = T)[,2],
+         fw_age = as.integer(fw_chr),
+         oc_age = as.integer(oc_chr),
+         tot_age = fw_age + oc_age) %>%
+  filter(!is.na(tot_age)) %>%
+  group_by(year, Origin, Sex) %>%
+  mutate(perc = n / sum(n)) %>%
+  ungroup()
 
+# tributary spawners
 trib_spawners_all = pit_est %>%
   filter(location %in% c('ICL',
                          'PES',
@@ -682,6 +728,71 @@ rt_df %<>%
   mutate(across(year,
                 fct_explicit_na,
                 na_level = "Total"))
+
+
+rt_df %>%
+  filter(year != "Total") %>%
+  group_by(Origin) %>%
+  summarize(across(phi,
+                   mean))
+
+
+
+rt_df %>%
+  filter(year != "Total") %>%
+  group_by(year) %>%
+  summarize(across(ends_with("fish"),
+                   sum),
+            .groups = "drop") %>%
+  mutate(phi = surv_fish / ow_fish,
+         phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
+  summarize(across(phi,
+                   mean))
+
+
+rt_df %>%
+  ggplot(aes(x = year,
+             y = phi,
+             color = Origin)) +
+  geom_errorbar(aes(ymin = qnorm(0.025, phi, phi_se),
+                    ymax = qnorm(0.975, phi, phi_se)),
+                width = 0) +
+  geom_point(size = 3) +
+  scale_color_brewer(palette = "Set1",
+                     name = "Origin") +
+  facet_wrap(~ Origin) +
+  labs(x = "Year",
+       y = "Overwinter Survival")
+
+
+test <- rt_df %>%
+  mutate(prop_sims = map2(phi, phi_se,
+                           .f = function(mu, se) {
+                             var = se^2
+                             alpha <- ((1 - mu) / var - 1 / mu) * mu ^ 2
+                             beta <- alpha * (1 / mu - 1)
+                             sims <- rbeta(10000, alpha, beta)
+                             return(sims)
+                           }))
+test %>%
+  # filter(year != 'Total') %>%
+  filter(year == 'Total') %>%
+  unnest(prop_sims) %>%
+  group_by(Origin) %>%
+  summarize(mu = mean(prop_sims),
+            se = sd(prop_sims),
+            cv = se / mu)
+
+test %>%
+  # filter(year != 'Total') %>%
+  filter(year == 'Total') %>%
+  unnest(prop_sims) %>%
+  # group_by(year) %>%
+  summarize(mu = mean(prop_sims),
+            se = sd(prop_sims),
+            cv = se / mu)
+
+
 
 #--------------------------------------------------------------
 # removal data
@@ -824,18 +935,20 @@ trib_df <- trib_spawners_all %>%
          trib_se = se)
 
 phi_df <- rt_df %>%
+  filter(year == "Total") %>%
   mutate(across(Origin,
                 recode,
                 "Hatchery" = "hor",
                 "Natural" = "nor")) %>%
   rename(origin = Origin) %>%
-  group_by(origin) %>%
-  summarize(across(c(ow_fish, surv_fish),
-                   sum),
-            .groups = "drop") %>%
-  mutate(phi = surv_fish / ow_fish,
-         phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
-  select(-ends_with("fish"))
+  # group_by(origin) %>%
+  # summarize(across(c(ow_fish, surv_fish),
+  #                  sum),
+  #           .groups = "drop") %>%
+  # mutate(phi = surv_fish / ow_fish,
+  #        phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
+  select(origin,
+         contains("phi"))
 
 main_spwn_df <- recent_spwn_redd %>%
   filter(str_detect(location, "TUM")) %>%
@@ -892,15 +1005,19 @@ comp_df <- pit_est %>%
                                        cov = diag(c(lwe_se,
                                                     phi_se,
                                                     trib_se)^2))) %>%
-  mutate(all_spwn_redd = trib_spwn + main_redd_spwn,
-         all_spwn_redd_se = sqrt(trib_se^2 + main_redd_se^2),
-         all_spwn_rt = trib_spwn + main_rt_spwn,
-         all_spwn_rt_se = sqrt(trib_se^2 + main_rt_se^2)) %>%
-  mutate(ows = all_spwn_redd / lwe_escp,
+  mutate(all_redd_spwn = trib_spwn + main_redd_spwn,
+         all_redd_se = sqrt(trib_se^2 + main_redd_se^2),
+         all_rt_spwn = lwe_escp * phi,
+         all_rt_se = msm::deltamethod(~ x1 * x2,
+                                           mean = c(lwe_escp,
+                                                    phi),
+                                           cov = diag(c(lwe_se,
+                                                        phi_se)^2))) %>%
+  mutate(ows = all_redd_spwn / lwe_escp,
          ows_se = msm::deltamethod(~ x1 / x2,
-                                   mean = c(all_spwn_redd,
+                                   mean = c(all_redd_spwn,
                                             lwe_fish),
-                                   cov = diag(c(all_spwn_redd_se,
+                                   cov = diag(c(all_redd_se,
                                                 lwe_se)^2)),
          psm = (lwe_escp - trib_spwn - main_redd_spwn) / lwe_escp,
          psm_se = msm::deltamethod(~ (x1 - x2 - x3) / x1,
@@ -917,7 +1034,7 @@ phos_comp = comp_df %>%
   select(year,
          origin,
          starts_with("main_r"),
-         starts_with("all_spwn")) %>%
+         starts_with("all_r")) %>%
   mutate(across(ends_with("spwn"),
                 ~ if_else(. < 0, 0, .))) %>%
   pivot_longer(-c(year, origin)) %>%
@@ -954,27 +1071,88 @@ phos_comp %>%
 # create figures
 #--------------------------------------------------------------
 pd = 0.3
-phos_comp %>%
+phos_est_p <- phos_comp %>%
+  mutate(across(source,
+                recode,
+                "redd" = "Redd-based",
+                "rt" = "RT-based"),
+         across(area,
+                str_to_title)) %>%
   ggplot(aes(x = year,
              y = phos,
              color = source)) +
+  # goal in Wenatchee is <= 30%
+  geom_hline(yintercept = 0.3,
+             linetype = 2) +
   geom_errorbar(aes(ymin = qnorm(0.025, phos, phos_se),
                     ymax = qnorm(0.975, phos, phos_se)),
                 width = 0,
                 position = position_dodge(pd)) +
-  geom_point(position = position_dodge(pd)) +
+  geom_point(position = position_dodge(pd),
+             size = 3) +
+  scale_color_viridis_d(end = 0.8,
+                        name = "Method") +
   facet_wrap(~ area) +
+  labs(x = "Year",
+       y = "pHOS") +
   coord_cartesian(ylim = c(0, 1))
 
 
-phos_comp %>%
+phos_cv_p <- phos_comp %>%
+  mutate(across(source,
+                recode,
+                "redd" = "Redd-based",
+                "rt" = "RT-based"),
+         across(area,
+                str_to_title)) %>%
+  filter(phos != 0) %>%
+  ggplot(aes(x = year,
+             y = phos_cv,
+             color = source)) +
+  geom_hline(yintercept = 0.15,
+             linetype = 2) +
+  geom_point(position = position_dodge(pd),
+             size = 3) +
+  scale_color_viridis_d(end = 0.8,
+                        name = "Method") +
+  facet_wrap(~ area) +
+  labs(x = "Year",
+       y = "CV of pHOS") +
+  coord_cartesian(ylim = c(0.05, 0.5))
+
+phos_bias_p <- phos_comp %>%
   select(year:area,
          contains("phos")) %>%
   pivot_wider(names_from = source,
               values_from = contains("phos")) %>%
   mutate(bias = phos_rt - phos_redd,
          rel_bias = bias / phos_redd,
-         pos_bias = if_else(rel_bias > 0, T, F)) %>%
+         pos_bias = if_else(rel_bias > 0, F, T)) %>%
+  mutate(across(area,
+                str_to_title)) %>%
+  ggplot(aes(x = year,
+             y = bias)) +
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             color = "darkgray") +
+  geom_line() +
+  geom_point(aes(color = pos_bias),
+             size = 3) +
+  scale_color_brewer(palette = "Dark2",
+                     guide = "none") +
+  facet_wrap(~ area) +
+  labs(x = "Year",
+       y = "Bias in pHOS of RT\nCompared to Redds")
+
+
+phos_rel_bias_p <- phos_comp %>%
+  select(year:area,
+         contains("phos")) %>%
+  pivot_wider(names_from = source,
+              values_from = contains("phos")) %>%
+  mutate(bias = phos_rt - phos_redd,
+         rel_bias = bias / phos_redd,
+         pos_bias = if_else(rel_bias > 0, F, T)) %>%
   mutate(across(area,
                 str_to_title)) %>%
   ggplot(aes(x = year,
@@ -985,12 +1163,32 @@ phos_comp %>%
   geom_line() +
   geom_point(aes(color = pos_bias),
              size = 3) +
-  scale_color_brewer(palette = "Set1",
-                     guide = F) +
+  scale_color_brewer(palette = "Dark2",
+                     guide = "none") +
   facet_wrap(~ area) +
   labs(x = "Year",
        y = "Relative Bias (%) of RT\nCompared to Redds",
        title = "pHOS Bias")
+
+
+phos_plot_lst <- list(
+  phos_estimates = phos_est_p,
+  phos_cv = phos_cv_p,
+  phos_bias = phos_bias_p,
+  phos_rel_bias = phos_rel_bias_p)
+
+for(i in 1:length(phos_plot_lst)) {
+  ggsave(paste0(save_loc,
+               names(phos_plot_lst)[i],
+               ".png"),
+         phos_plot_lst[[i]],
+         width = 7,
+         height = 4)
+}
+
+
+
+
 
 phos_comp %>%
   select(year:area,
@@ -1013,28 +1211,32 @@ phos_comp %>%
        title = "pHOS Bias")
 
 
-
-comp_df %>%
+pd = 0.3
+spwn_ts <- comp_df %>%
   mutate(across(origin,
                 recode,
                 "hor" = "Hatchery",
                 "nor" = "Natural")) %>%
   select(year,
          origin,
-         # lwe_escp, lwe_se,
-         starts_with("all_spwn")) %>%
+         starts_with("main_"),
+         starts_with("all_")) %>%
   pivot_longer(-c(year, origin)) %>%
   mutate(type = if_else(str_detect(name, "se"),
                         "se",
                         "est"),
          source = if_else(str_detect(name, "redd"),
                           "Redd-based",
-                          "RT-based")) %>%
+                          "RT-based"),
+         area = if_else(str_detect(name, "main"),
+                        "Mainstem",
+                        "Population")) %>%
   select(-name) %>%
   pivot_wider(names_from = type,
               values_from = value) %>%
   arrange(year,
           source,
+          area,
           origin) %>%
   ggplot(aes(x = year,
              y = est,
@@ -1046,143 +1248,225 @@ comp_df %>%
   geom_point(position = position_dodge(pd),
              size = 2) +
   geom_line(position = position_dodge(pd)) +
-  facet_wrap(~ origin,
-             scales = "free_y",
-             ncol = 1) +
-  scale_color_viridis_d(name = "Source",
+  facet_grid(area ~ origin,
+             scales = "free_y") +
+  scale_color_viridis_d(name = "Method",
                         end = 0.8) +
   theme(legend.position = "bottom") +
   labs(x = "Year",
        y = "Estimate",
-       title = "Wenatchee Population")
+       title = "Wenatchee Steelhead Spawners")
 
-
-
-# sensitivity analysis to estimates of phi
-rt_df %>%
-  mutate(across(Origin,
-                recode,
-                "Hatchery" = "hor",
-                "Natural" = "nor")) %>%
-  rename(origin = Origin) %>%
-  group_by(year, origin) %>%
-  summarize(across(c(ow_fish, surv_fish),
-                   sum),
-            .groups = "drop") %>%
-  mutate(phi = surv_fish / ow_fish,
-         phi_se = sqrt((phi * (1 - phi))/ ow_fish)) %>%
-  filter(year != "Total") %>%
-  group_by(origin) %>%
-  summarize(across(phi,
-                   mean),
-            across(phi_se,
-                   ~ sqrt(mean(.^2))))
-
-phi_sim <- crossing(origin = c("nor",
-                               "hor"),
-                    phi = seq(0.7, 0.95, by = 0.05)) %>%
-  mutate(phi_se = 0.08) %>%
-  group_by(origin) %>%
-  mutate(sim = 1:n()) %>%
-  ungroup() %>%
-  relocate(sim,
-           .before = 1)
-
-sens_comp <- pit_est %>%
-  filter(location == "LWE") %>%
-  mutate(across(origin,
-                recode,
-                "H" = "hor",
-                "W" = "nor")) %>%
-  select(year, origin,
-         lwe_fish = mean,
-         lwe_se = sd) %>%
-  inner_join(rem_df) %>%
-  inner_join(phi_sim) %>%
-  inner_join(trib_df) %>%
-  left_join(main_spwn_df) %>%
-  rowwise() %>%
-  mutate(lwe_escp = lwe_fish - rem,
-         main_rt_spwn = (lwe_escp * phi) - trib_spwn,
-         main_rt_se = msm::deltamethod(~ (x1 * x2) - x3,
-                                       mean = c(lwe_escp,
-                                                phi,
-                                                trib_spwn),
-                                       cov = diag(c(lwe_se,
-                                                    phi_se,
-                                                    trib_se)^2))) %>%
-  mutate(all_spwn_redd = trib_spwn + main_redd_spwn,
-         all_spwn_redd_se = sqrt(trib_se^2 + main_redd_se^2),
-         all_spwn_rt = trib_spwn + main_rt_spwn,
-         all_spwn_rt_se = sqrt(trib_se^2 + main_rt_se^2)) %>%
-  mutate(ows = all_spwn_redd / lwe_escp,
-         ows_se = msm::deltamethod(~ x1 / x2,
-                                   mean = c(all_spwn_redd,
-                                            lwe_fish),
-                                   cov = diag(c(all_spwn_redd_se,
-                                                lwe_se)^2)),
-         psm = (lwe_escp - trib_spwn - main_redd_spwn) / lwe_escp,
-         psm_se = msm::deltamethod(~ (x1 - x2 - x3) / x1,
-                                   mean = c(lwe_escp,
-                                            trib_spwn,
-                                            main_redd_spwn),
-                                   cov = diag(c(lwe_se,
-                                                trib_se,
-                                                main_redd_se)^2))) %>%
-  ungroup()
-
-
-sens_comp %>%
+spwn_cv <- comp_df %>%
   mutate(across(origin,
                 recode,
                 "hor" = "Hatchery",
                 "nor" = "Natural")) %>%
+  mutate(across(ends_with("spwn"),
+                ~ if_else(. < 0, 0, .))) %>%
+  mutate(main_redd_cv = main_redd_se / main_redd_spwn,
+         all_redd_cv = all_redd_se / all_redd_spwn,
+         main_rt_cv = main_rt_se / main_rt_spwn,
+         all_rt_cv = all_rt_se / all_rt_spwn) %>%
   select(year,
          origin,
-         sim, phi,
-         starts_with("all_spwn")) %>%
-  pivot_longer(-c(year:phi)) %>%
-  mutate(type = if_else(str_detect(name, "se"),
-                        "se",
-                        "est"),
-         source = if_else(str_detect(name, "redd"),
+         ends_with("cv")) %>%
+  pivot_longer(-c(year, origin),
+               values_to = "cv") %>%
+  mutate(source = if_else(str_detect(name, "redd"),
                           "Redd-based",
-                          "RT-based")) %>%
+                          "RT-based"),
+         area = if_else(str_detect(name, "main"),
+                        "Mainstem",
+                        "Population")) %>%
   select(-name) %>%
-  pivot_wider(names_from = type,
-              values_from = value) %>%
   arrange(year,
           source,
-          origin,
-          sim) %>%
-  filter(source != "Redd-based") %>%
-  group_by(year, origin) %>%
-  mutate(diff = est - lag(est),
-         rel_diff = diff / min(est)) %>%
-  ungroup() %>%
-  # filter(!is.na(rel_diff)) %>%
-  # mutate(across(rel_diff,
-  #               round,
-  #               3)) %>%
-  # select(year, origin,
-  #        rel_diff) %>%
-  # distinct()
+          area,
+          origin) %>%
+  filter(cv <= 1) %>%
   ggplot(aes(x = year,
-             y = est,
-             color = as.factor(phi))) +
-  geom_errorbar(aes(ymin = qnorm(0.025, est, se),
-                    ymax = qnorm(0.975, est, se)),
-                position = position_dodge(pd),
-                width = 0) +
+             y = cv,
+             color = source)) +
+  geom_hline(yintercept = 0.15,
+             linetype = 2) +
   geom_point(position = position_dodge(pd),
-             size = 2) +
-  geom_line(position = position_dodge(pd)) +
-  facet_wrap(~ origin,
-             scales = "free_y",
-             ncol = 1) +
-  scale_color_viridis_d(name = "OWS",
+             size = 3) +
+  # geom_line(position = position_dodge(pd)) +
+  facet_grid(area ~ origin,
+             scales = "free_y") +
+  scale_color_viridis_d(name = "Method",
                         end = 0.8) +
+  # coord_cartesian(ylim = c(0, 1)) +
   theme(legend.position = "bottom") +
   labs(x = "Year",
-       y = "Estimate",
-       title = "Wenatchee Population")
+       y = "CV of Spawner Estimates",
+       title = "Wenatchee Steelhead Spawners")
+
+
+comp_df %>%
+  ggplot(aes(x = main_redd_spwn,
+             y = main_rt_spwn,
+             color = origin)) +
+  geom_abline(linetype = 2) +
+  # geom_errorbar(aes(ymin = qnorm(0.025, main_rt_spwn, main_rt_se),
+  #                   ymax = qnorm(0.975, main_rt_spwn, main_rt_se))) +
+  # geom_errorbarh(aes(xmin = qnorm(0.025, main_redd_spwn, main_redd_se),
+  #                    xmax = qnorm(0.975, main_redd_spwn, main_redd_se))) +
+  geom_point(size = 3) +
+  # geom_smooth(method = lm,
+  #             formula = y ~ x - 1,
+  #             se = F,
+  #             fullrange = T) +
+  geom_text_repel(aes(label = year),
+                  show.legend = F) +
+  scale_color_brewer(palette = "Set1",
+                     name = "Origin") +
+  scale_y_continuous(limits = c(-100, 310)) +
+  geom_hline(yintercept = 0,
+             linetype = 3) +
+  geom_vline(xintercept = 0,
+             linetype = 3) +
+  labs(title = "Mainstem Wenatchee Steelhead Spawners",
+       x = "Redd-based",
+       y = "RT based")
+
+comp_df %>%
+  ggplot(aes(x = all_redd_spwn,
+             y = all_rt_spwn,
+             color = origin)) +
+  geom_abline(linetype = 2) +
+  geom_errorbar(aes(ymin = qnorm(0.025, all_rt_spwn, all_rt_se),
+                    ymax = qnorm(0.975, all_rt_spwn, all_rt_se)),
+                width = 0) +
+  geom_errorbarh(aes(xmin = qnorm(0.025, all_redd_spwn, all_redd_se),
+                     xmax = qnorm(0.975, all_redd_spwn, all_redd_se)),
+                 height = 0) +
+  geom_point(size = 3) +
+  geom_smooth(method = lm,
+              formula = y ~ x - 1,
+              se = F,
+              fullrange = T) +
+  geom_text_repel(aes(label = year),
+                  show.legend = F) +
+  scale_color_brewer(palette = "Set1",
+                     name = "Origin") +
+  labs(title = "Wenatchee Population Steelhead Spawners",
+       x = "Redd-based",
+       y = "RT based")
+
+
+spwn_rel_bias_p <- comp_df %>%
+  rename(total_redd_spwn = all_redd_spwn,
+         total_rt_spwn = all_rt_spwn) %>%
+  mutate(main_bias = main_rt_spwn - main_redd_spwn,
+         total_bias = total_rt_spwn - total_redd_spwn,
+         main_rel_bias = main_bias / main_redd_spwn,
+         main_abs_bias = abs(main_bias),
+         total_rel_bias = total_bias / total_redd_spwn,
+         total_abs_bias = abs(total_bias)) %>%
+  select(year, origin,
+         contains("spwn"),
+         contains("bias")) %>%
+  pivot_longer(c(contains("main"),
+                 contains("total"))) %>%
+  mutate(type = if_else(str_detect(name, "main"),
+                        "Mainstem",
+                        "Population"),
+         across(name,
+                str_remove,
+                "^main_"),
+         across(name,
+                str_remove,
+                "^total_")) %>%
+  pivot_wider() %>%
+  mutate(across(origin,
+                recode,
+                "hor" = "Hatchery",
+                "nor" = "Natural")) %>%
+  ggplot(aes(x = origin,
+             y = rel_bias,
+             fill = origin)) +
+  geom_boxplot() +
+  # geom_violin(draw_quantiles = c(0.25, 0.5, 0.75)) +
+  stat_summary(fun = "mean",
+               geom = "point",
+               shape = 17,
+               size = 4,
+               color = "blue",
+               show.legend = F) +
+  geom_point(size = 2,
+             position = position_jitter(width = 0.1)) +
+  geom_hline(yintercept = 0,
+             linetype = 2,
+             lwd = 1) +
+  scale_fill_brewer(palette = "Set1",
+                    name = "Origin") +
+  facet_wrap(~ type,
+             scales = "free_y") +
+  theme(legend.position = "bottom",
+        axis.title.x = element_blank()) +
+  labs(y = "Relative Bias (%) of RT\nCompared to Redds",
+       title = "Wenatchee Steelhead Spawners")
+
+
+spwn_rel_bias_ts <- comp_df %>%
+  rename(total_redd_spwn = all_redd_spwn,
+         total_rt_spwn = all_rt_spwn) %>%
+  mutate(main_bias = main_rt_spwn - main_redd_spwn,
+         total_bias = total_rt_spwn - total_redd_spwn,
+         main_rel_bias = main_bias / main_redd_spwn,
+         main_abs_bias = abs(main_bias),
+         total_rel_bias = total_bias / total_redd_spwn,
+         total_abs_bias = abs(total_bias)) %>%
+  select(year, origin,
+         contains("spwn"),
+         contains("bias")) %>%
+  pivot_longer(c(contains("main"),
+                 contains("total"))) %>%
+  mutate(type = if_else(str_detect(name, "main"),
+                        "Mainstem",
+                        "Population"),
+         across(name,
+                str_remove,
+                "^main_"),
+         across(name,
+                str_remove,
+                "^total_")) %>%
+  pivot_wider() %>%
+  mutate(across(origin,
+                recode,
+                "hor" = "Hatchery",
+                "nor" = "Natural")) %>%
+  mutate(pos_bias = if_else(rel_bias > 0, F, T)) %>%
+  ggplot(aes(x = year,
+             y = rel_bias)) +
+  geom_hline(yintercept = 0,
+             linetype = 2) +
+  geom_line() +
+  geom_point(aes(color = pos_bias),
+             size = 3) +
+  scale_color_brewer(palette = "Dark2",
+                     guide = "none") +
+  facet_grid(type ~ origin,
+             scales = "free_y") +
+  labs(x = "Year",
+       y = "Relative Bias (%) of RT\nCompared to Redds",
+       title = "Wenatchee Steelhead Spawners")
+
+
+spwn_plot_lst <- list(
+  spwn_ts = spwn_ts,
+  spwn_cv = spwn_cv,
+  spwn_rel_bias = spwn_rel_bias_p,
+  spwn_rel_bias_ts = spwn_rel_bias_ts)
+
+for(i in 1:length(spwn_plot_lst)) {
+  ggsave(paste0(save_loc,
+                names(spwn_plot_lst)[i],
+                ".png"),
+         spwn_plot_lst[[i]],
+         width = 7,
+         height = 4)
+}
+
