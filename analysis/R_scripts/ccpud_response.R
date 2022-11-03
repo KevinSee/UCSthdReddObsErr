@@ -401,10 +401,14 @@ comp_df %>%
   # geom_errorbarh(aes(xmin = qnorm(0.025, main_redd_spwn, main_redd_se),
   #                    xmax = qnorm(0.975, main_redd_spwn, main_redd_se))) +
   geom_point(size = 3) +
+  # geom_smooth(method = lm,
+  #             formula = y ~ x - 1,
+  #             se = F,
+  #             fullrange = T) +
   geom_text_repel(aes(label = year)) +
   scale_color_brewer(palette = "Set1",
                      name = "Origin") +
-  scale_y_continuous(limits = c(-100, NA)) +
+  scale_y_continuous(limits = c(-100, 310)) +
   geom_hline(yintercept = 0,
              linetype = 3) +
   geom_vline(xintercept = 0,
