@@ -19,6 +19,6 @@ Suggests:
     testthat
 URL: https://github.com/BiomarkABS/UCSthdReddObsErr
 BugReports: https://github.com/BiomarkABS/UCSthdReddObsErr/issues
-RoxygenNote: 7.1.0
+RoxygenNote: 7.1.2
 Depends: 
     R (>= 2.10)
