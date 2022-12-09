@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prepare some datasets for inclusion in the package
 # Created: 5/4/2020
-# Last Modified: 11/17/2021
+# Last Modified: 12/2/2022
 # Notes: This data was sent by Michael Hughes
 
 #-----------------------------------------------------------------
@@ -108,6 +108,52 @@ removal_df %<>%
   bind_rows(rem_met_2021 %>%
               add_column(Subbasin = "Methow",
                          .before = 0))
+
+#-----------------------------------------------------------------
+# add removals from the Wenatchee in 2022
+rem_wen_2022 <- crossing(Source = c("Dryden", "Tumwater"),
+         Origin = c("Hatchery", "Natural")) %>%
+  add_column(Subbasin = "Wenatchee",
+             Year = 2022,
+             .before = 1) %>%
+  mutate(rem = c(16, 2,
+                 32, 29)) %>%
+  mutate(Area = recode(Source,
+                       'Tumwater' = 'TUM_bb',
+                       'Dryden' = 'Below_TUM'))
+
+removal_df %<>%
+  bind_rows(rem_wen_2022)
+
+#-----------------------------------------------------------------
+# add removals from the Methow in 2022
+rem_met_2022 <- read_excel(here("analysis/data/raw_data",
+                                "Net Methow removals in 2022.xlsx"),
+                           1,
+                           range = "B4:E8") %>%
+  mutate(across(where(is.numeric),
+                replace_na,
+                0)) %>%
+  select(Source = Location,
+         Hatchery = HOR,
+         Natural = NOR) %>%
+  mutate(Area = recode(Source,
+                       "Methow mainstem" = "Lower Methow",
+                       "Twisp weir" = "Twisp",
+                       "WNFH hatchery trap" = "Methow Fish Hatchery")) %>%
+  pivot_longer(cols = c(Hatchery,
+                        Natural),
+               names_to = "Origin",
+               values_to = "rem") %>%
+  add_column(Subbasin = "Methow",
+             Year = 2022,
+             .before = 0) %>%
+  select(any_of(names(removal_df)))
+
+removal_df %<>%
+  bind_rows(rem_met_2022)
+
+
 
 #-----------------------------------------------------------------
 # save for use in package
