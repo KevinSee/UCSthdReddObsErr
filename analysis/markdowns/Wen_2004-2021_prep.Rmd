@@ -1602,7 +1602,8 @@ pit_list <- tibble(year = 2011:2021) %>%
                               Location,
                               spawn_node,
                               Origin = origin,
-                              Sex = sex)
+                              Sex = sex,
+                              age)
 
                      list(escp = escape_summ,
                           tags = wen_tags) %>%
@@ -1651,6 +1652,41 @@ pit_sex_org = pit_list %>%
          starts_with("fpr"),
          starts_with("phos"))
 
+# look at age comp
+age_comp_org = pit_list %>%
+  mutate(tags = map(pit_info,
+                    "tags")) %>%
+  select(-pit_info) %>%
+  unnest(tags) %>%
+  left_join(read_excel(here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
+                            "UC STHD_Model_Output.xlsx"),
+                       "Age_Cheat_Sheet",
+                       skip = 1) %>%
+              clean_names() %>%
+              rename(run_sh = x3,
+                     age = x4,
+                     total_age = x9,
+                     notes = x10) %>%
+              mutate(across(total_age,
+                            as.integer)) %>%
+              select(age,
+                     total_age)) %>%
+  select(-final_age) %>%
+  filter(!is.na(total_age)) %>%
+  group_by(year, 
+           origin = Origin) %>%
+  count(total_age) %>%
+  mutate(total_aged = sum(n)) %>%
+  mutate(n = n / total_aged) %>%
+  ungroup() %>%
+  pivot_wider(names_from = total_age,
+              values_from = n,
+              names_sort = T,
+              values_fill = 0) %>%
+  mutate(across(origin,
+                recode,
+                "H" = "hor",
+                "W" = "nor"))
 
 trib_spawners_all = pit_est %>%
   filter(location %in% c('ICL',
@@ -2727,6 +2763,17 @@ wen_spwn %>%
                 round_half_up)) %>%
   write_csv(file = here("analysis/data/derived_data",
                       "Wenatchee_Sthd_Spwn_2004-2021.csv"))
+
+age_comp_org %>%
+  mutate(across(-c(year,
+                   origin,
+                   total_aged),
+                round,
+                digits = 4)) %>%
+  write_csv(file = here("analysis/data/derived_data",
+                      "Wenatchee_Sthd_Age_2011-2021.csv"))
+
+
 ```
 
 
