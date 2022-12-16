@@ -139,6 +139,7 @@ rem_met_2022 <- read_excel(here("analysis/data/raw_data",
          Natural = NOR) %>%
   mutate(Area = recode(Source,
                        "Methow mainstem" = "Lower Methow",
+                       "DCPUD to Wells" = "Lower Methow",
                        "Twisp weir" = "Twisp",
                        "WNFH hatchery trap" = "Methow Fish Hatchery")) %>%
   pivot_longer(cols = c(Hatchery,
