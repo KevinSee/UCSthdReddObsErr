@@ -1561,7 +1561,7 @@ pit_list <- tibble(year = 2011:2021) %>%
                    .f = function(yr,
                                  dam_cnt_name) {
                      load(paste0('O:Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/estimates/', dam_cnt_name,
-                                 "/PRA_DABOM_Steelhead_", yr, ".rda"))
+                                 "/old/PRA_DABOM_Steelhead_", yr, ".rda"))
 
                      wen_tags = save_list$`Tag Summary` %>%
                        filter(str_detect(path, "LWE")) %>%
@@ -1653,13 +1653,14 @@ pit_sex_org = pit_list %>%
          starts_with("phos"))
 
 # look at age comp
+
 age_comp_org = pit_list %>%
   mutate(tags = map(pit_info,
                     "tags")) %>%
   select(-pit_info) %>%
   unnest(tags) %>%
   left_join(read_excel(here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
-                            "UC STHD_Model_Output.xlsx"),
+                            "UC STHD_Model_Output_Examp.xlsx"),
                        "Age_Cheat_Sheet",
                        skip = 1) %>%
               clean_names() %>%
@@ -1671,7 +1672,7 @@ age_comp_org = pit_list %>%
                             as.integer)) %>%
               select(age,
                      total_age)) %>%
-  select(-final_age) %>%
+  # select(-final_age) %>%
   filter(!is.na(total_age)) %>%
   group_by(year, 
            origin = Origin) %>%
@@ -2756,7 +2757,7 @@ wen_spwn <- spwn_org_expnd %>%
 ```
 
 
-```{r save-ts}
+```{r save-ts, eval = F}
 # save as csv
 wen_spwn %>%
   mutate(across(ends_with("spwn"),
