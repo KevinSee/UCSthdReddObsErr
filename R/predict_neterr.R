@@ -32,10 +32,12 @@ predict_neterr = function(data,
   }
 
   pred_df = data %>%
+    mutate(data_id = 1:n()) %>%
     tidyr::pivot_longer(any_of(covar_center$metric),
                         names_to = "metric",
                         values_to = "value") %>%
-    left_join(covar_center) %>%
+    left_join(covar_center,
+              by = "metric") %>%
     mutate(value = (value - mu) / stddev ) %>%
     select(-mu, -stddev) %>%
     tidyr::pivot_wider(names_from = "metric",
@@ -51,7 +53,9 @@ predict_neterr = function(data,
 
   pred_df = pred_df %>%
     select(-any_of(covar_center$metric)) %>%
-    left_join(data) %>%
+    left_join(data %>%
+                mutate(data_id = 1:n())) %>%
+    select(-data_id) %>%
     select(any_of(names(data)), everything())
 
   return(pred_df)

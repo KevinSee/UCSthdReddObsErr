@@ -24,28 +24,28 @@ correlateRchs = function(redd_df = NULL,
   }
 
   # check the class of survey date column
-  date_class <- redd_df %>%
-    pull({{ date_nm}}) %>%
+  date_class <- redd_df |>
+    pull({{ date_nm}}) |>
     class()
   if(date_class == "Date") {
-    redd_df <- redd_df %>%
+    redd_df <- redd_df |>
       mutate(across({{ date_nm }},
                     as.POSIXct))
   }
 
   cor_mat <- redd_df |>
-    # filter(filter_exp) |>
     rename(redds = {{ redd_nm }},
            reach = {{ reach_nm }},
            surv_date = {{ date_nm }}) |>
     mutate(surv_period = lubridate::week(surv_date)) |>
-    select(reach,
-           surv_period,
-           redds) %>%
+    group_by(reach, surv_period) %>%
+    summarize(across(redds,
+                     mean,
+                     na.rm = T)) %>%
     pivot_wider(names_from = reach,
                 values_from = redds,
-                names_sort = T) %>%
-    select(-surv_period) %>%
+                names_sort = T) |>
+    select(-surv_period) |>
     # corrr::correlate(...)
     stats::cor(use = use,
                ...)
