@@ -718,7 +718,7 @@ Hatchery origin steelhead PIT-tagged at Priest Rapids dam were not detected in a
 
 # Acknowledgements
 
-The data for this report was collected by Washington Department of Fish and Wildlife.
+The data for this report was collected by Washington Department of Fish and Wildlife, and funded by Chelan County Public Utility District.
 
 <!-- The following line inserts a page break  -->
 \newpage
