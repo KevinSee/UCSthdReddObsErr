@@ -25,7 +25,7 @@ for(yr in c(2014:2022)) {
     next
   }
 
-  cat(paste("\t Prepping year", yr, "\n\n"))
+  cat(paste("\n\t Prepping year", yr, "\n\n"))
 
   #-----------------------------------------------------------------
   # read in data
@@ -385,13 +385,13 @@ for(yr in c(2014:2022)) {
   # pull out Wenatchee tags
   wen_tags = tag_summ %>%
     filter(str_detect(path, "LWE")) %>%
-    mutate(Area = ifelse(spawn_node == 'TUM',
+    mutate(Area = if_else(spawn_node %in% c('TUM', 'UWE'),
                          'TUM_bb',
-                         if_else(str_detect(path, 'TUM'),
-                                 'Tribs_above_TUM',
-                                 'Below_TUM'))) %>%
+                         if_else(str_detect(spawn_node, "^LWE"),
+                                 "Below_TUM",
+                                 "Tributaries"))) %>%
     mutate(Area = factor(Area,
-                         levels = c("Below_TUM", 'TUM_bb', 'Tribs_above_TUM'))) %>%
+                         levels = c("Below_TUM", 'TUM_bb', 'Tributaries'))) %>%
     select(TagID = tag_code,
            Location = Area,
            Origin = origin,
@@ -426,7 +426,7 @@ for(yr in c(2014:2022)) {
     mutate(Location = factor(Location,
                              levels = c("Below_TUM",
                                         "TUM_bb",
-                                        "Tribs_above_TUM",
+                                        "Tributaries",
                                         "Peshastin",
                                         "Nason",
                                         "Chiwawa")))
