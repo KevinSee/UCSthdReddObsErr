@@ -262,7 +262,11 @@ spwn_rch = redd_results %>%
                                                 'Chiwawa', 
                                                 'Nason', 
                                                 'Little Wenatchee', 
-                                                'White River'))) %>%
+                                                'White River')),
+         across(Location,
+                fct_recode,
+                "Below TUM (mainstem)" = "Below_TUM",
+                "Above TUM (mainstem)" = "TUM_bb")) %>%
   arrange(Location, Reach, Type) %>%
   mutate(h_cv = Hatchery_SE / Hatchery,
          n_cv = Natural_SE / Natural)
@@ -323,7 +327,7 @@ summary(net_err_mod)$coefficients %>%
 
 Redd counts were conducted on a nearly weekly basis for index reaches, and once during the peak spawning period for non-index reaches. The covariates in the observer error model of @Murdoch2018 were collected during each survey. The covariate of mean thalweg CV was calculated based on all measurements taken within a reach across years (assuming this covariate does not vary through time within a reach). They were compared with the covariates contained in the model data set, as well as the estimates of net error (Figure \@ref(fig:covariate-comparison)). 
 
-```{r covariate-comparison, fig.cap = "Net error covariate values from the original study the predicted reaches in this report."}
+```{r covariate-comparison, fig.cap = "Net error covariate values. Colors correspond to either the original study or the reaches where the model was used in this report."}
 redd_df %>%
   select(NetError,
          one_of(attr(net_err_mod$terms, 'term.labels'))) %>%
@@ -360,7 +364,7 @@ Those covariates in the observer error model were collected during each survey i
 
 ## Estimating Redds
 
-Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.
+Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life is thus the difference between survey numbers, which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.
 
 For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. \@ref(eq:net-error)). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from `r paste(range(redd_df$NewRedds[redd_df$Index == 'N']), collapse = ' to ')`, any violation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.
 
@@ -589,8 +593,8 @@ fpr_df %>%
   filter(Location != 'Tribs_above_TUM') %>%
   mutate(Location = recode(Location, 
                            'Tribs_above_TUM' = 'Tribs above TUM', 
-                           'Below_TUM' = 'Below TUM',
-                           'TUM_bb' = 'Mainstem above TUM')) %>%
+                           'Below_TUM' = 'Below TUM (mainstem)',
+                           'TUM_bb' = 'Above TUM (mainstem)')) %>%
   kable(digits = 3,
         booktabs = T,
         caption = "Fish per redd and hatchery / natural origin proportion estimates.",
@@ -667,6 +671,10 @@ spwn_rch %>%
                                                 '-', 
                                                 as.character(round(n_cv, 2))), ")")) %>%
   select(River, Location, Natural = n_prnt, Hatchery = h_prnt) %>%
+  # mutate(across(Location,
+  #               recode,
+  #               "TUM_bb" = "Above TUM (mainstem)",
+  #               "Below_TUM" = "Below TUM (mainstem)"))
   relocate(Hatchery,
            .after = last_col()) %>%
   kable(caption = "Estimates (CV) of spawners by area and origin.",
@@ -700,7 +708,7 @@ ps_mort_wen %>%
   arrange(desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
+        caption = "Wenatchee prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, rate of prespawn mortality, and standard error of this rate, separated by origin.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -719,7 +727,7 @@ Hatchery origin steelhead PIT-tagged at Priest Rapids dam were not detected in a
 
 # Acknowledgements
 
-The data for this report was collected by Washington Department of Fish and Wildlife.
+The data for this report was collected by Washington Department of Fish and Wildlife, and funded by Chelan County Public Utility District.
 
 <!-- The following line inserts a page break  -->
 \newpage

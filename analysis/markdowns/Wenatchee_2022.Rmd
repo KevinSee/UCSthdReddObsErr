@@ -283,6 +283,7 @@ Redd counts are an established method to provide an index of adult spawners [@Ga
 1. Use estimates of observer net error rates and the mean survey interval to estimate the number of redds in each index reach, using a Gaussian area under the curve (GAUC) technique described in @Millar2012 and @Murdoch2018.
 1. Estimate the total number of redds in the non-index reaches by adjusting the observed counts with the estimated net error where possible.
 1. Sum the total number of estimated redds for the entire Wenatchee subbasin.
+1. Translate the estimated number of redds into estimates of spawners, by origin.
 
 # Methods
 
