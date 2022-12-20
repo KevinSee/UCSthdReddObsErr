@@ -464,7 +464,7 @@ summary(net_err_mod)$coefficients %>%
 
 Redd counts were conducted on a nearly weekly basis for index reaches, and once during the peak spawning period for non-index reaches. The covariates in the observer error model of @Murdoch2018 were collected during each survey. The covariate of mean thalweg CV was calculated based on all measurements taken within a reach across years (assuming this covariate does not vary through time within a reach). They were compared with the covariates contained in the model data set, as well as the estimates of net error (Figure \@ref(fig:covariate-comparison)). 
 
-```{r covariate-comparison, fig.cap = "Net error covariate values from the original study the predicted reaches in this report."}
+```{r covariate-comparison, fig.cap = "Net error covariate values. Colors correspond to either the original study or the reaches where the model was used in this report."}
 redd_df %>%
   select(NetError,
          one_of(attr(net_err_mod$terms, 'term.labels'))) %>%
@@ -501,7 +501,7 @@ Those covariates in the observer error model were collected during each survey i
 
 ## Estimating Redds
 
-Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life thus the difference between survey numbers which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.
+Use of the GAUC methodology was limited to index reaches with a minimum of `r as.character(as.english(min_redds))` redds and at least `r as.character(as.english(min_non0_wks))` weeks with at least one new redd found. For those reaches, we used the method described in @Millar2012 and @Murdoch2018. The GAUC model was developed with spawner counts in mind. As it is usually infeasible to mark every individual spawner, only total spawner counts can be used, and an estimate of average stream life must be utilized to translate total spawner days to total unique spawners. However, in adapting this for redd surveys, we note that individual redds can be marked, and therefore the GAUC model can be fit to new redds only. The equivalent of stream life is thus the difference between survey numbers, which can be fixed at 1. We applied the average net error from all the surveys when redds were visible, so as to not bias the estimate from early weeks when no redds were found, and the observed redd density was zero.
 
 For non-index reaches, which were surveyed only once during peak spawning, the estimate of total redds was calculated by dividing the observed redds by the estimate of net error associated with that survey (Eq. \@ref(eq:net-error)). This assumes that no redds were washed out before the non-index survey, and that no new redds appeared after that survey. As the number of redds observed in the non-index reaches ranged from `r paste(range(redd_df$NewRedds[redd_df$Index == 'N']), collapse = ' to ')`, any violation of this assumption should not affect the overall estimates very much. Any index reaches that did not meet the thresholds described above were treated as non-index reaches, and the total observed redds in those reaches were divided by the mean estimate of net error for each reach.
 
@@ -964,7 +964,7 @@ ps_mort_met %>%
   arrange(desc(Origin)) %>%
   kable(digits = 3,
         booktabs = T,
-        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, prespawn mortality, and standard error of this rate, separated by origin.") %>%
+        caption = "Methow prespawn mortality estimates. Includes estimates (standard error) of escapement, spawners, rate of prespawn mortality, and standard error of this rate, separated by origin.") %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped")
 ```
@@ -974,7 +974,7 @@ ps_mort_met %>%
 Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). 
 <!-- However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches.  -->
 
-Natural origin steelhead PIT-tagged at Priest Rapids dam were not detected in Spring Creek this year, nor were HOR-C fish detected in Gold, Libby or the Upper Methow, leading to estimates of zero spawners for those origins in those tributaries (Table \@ref(tab:spwn-area)). Because these estimates are based on a sample of the entire Upper Columbia steelhead run, it's possible a handful of steelhead may have spawned in those tributaries, but it's potentially more likely that the estimate of zero steelhead spawners in those areas is correct.
+Natural origin steelhead PIT-tagged at Priest Rapids dam were not detected in Libby Creek this year, nor were HOR-C fish detected in Gold, Libby or the Upper Methow, leading to estimates of zero spawners for those origins in those tributaries (Table \@ref(tab:spwn-area)). Because these estimates are based on a sample of the entire Upper Columbia steelhead run, it's possible a handful of steelhead may have spawned in those tributaries, but it's potentially more likely that the estimate of zero steelhead spawners in those areas is correct.
 
 <!-- The estimates of high prespawn mortality in the lower mainstem of the Methow for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches. -->
 
