@@ -116,8 +116,8 @@ rem_wen_2022 <- crossing(Source = c("Dryden", "Tumwater"),
   add_column(Subbasin = "Wenatchee",
              Year = 2022,
              .before = 1) %>%
-  mutate(rem = c(16, 2,
-                 32, 29)) %>%
+  mutate(rem = c(16, 0,
+                 32, 51)) %>%
   mutate(Area = recode(Source,
                        'Tumwater' = 'TUM_bb',
                        'Dryden' = 'Below_TUM'))

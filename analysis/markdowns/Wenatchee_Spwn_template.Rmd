@@ -603,7 +603,7 @@ fpr_df %>%
                 latex_options = "striped")
 ```
 
-Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the mainstem areas, Table \@ref(tab:spawn-est) shows all of them, broken down by area and origin. Table \@ref(tab:spwn-area) shows a summary of spawners by origin across various areas including the Wenatchee mainstem and each tributary.
+Combining PIT tag-based estimates of spawners in the tributaries with adjusted redd-based estimates of spawners in the mainstem areas, Table \@ref(tab:spawn-est) shows all of them, broken down by reach or tributary and origin. Table \@ref(tab:spwn-area) shows a summary of spawners by origin across various areas including the Wenatchee mainstem and each tributary.
 
 ```{r spawn-est}
 spwn_rch %>%
@@ -612,7 +612,7 @@ spwn_rch %>%
                         as.character(Reach))) %>%
   mutate(across(c(Hatchery, Natural),
                 round_half_up)) %>%
-  bind_rows(summarise(.,
+  bind_rows(summarise(spwn_rch,
                       Hatchery = sum(Hatchery),
                       Natural = sum(Natural),
                       Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
@@ -626,7 +626,7 @@ spwn_rch %>%
   mutate(h_prnt = paste0(Hatchery, " (", if_else(is.na(h_cv), '-', as.character(round(h_cv, 2))), ")"),
          n_prnt = paste0(Natural, " (", if_else(is.na(n_cv), '-', as.character(round(n_cv, 2))), ")")) %>%
   select(River, Area, Type, Natural = n_prnt, Hatchery = h_prnt) %>%
-  kable(caption = "Estimates (CV) of spawners by area and origin.",
+  kable(caption = "Estimates (CV) of spawners by reach or tributary and origin.",
         booktabs = T) %>%
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped") %>%
@@ -639,12 +639,13 @@ spwn_rch %>%
 
 ```{r spwn-area}
 spwn_rch %>%
-  mutate(Area = if_else(is.na(Reach),
-                        as.character(Location),
-                        as.character(Reach))) %>%
-  mutate(across(c(Hatchery, Natural),
-                round_half_up)) %>%
-  bind_rows(summarise(.,
+  group_by(River, Location) %>%
+  summarize(across(c(Hatchery, Natural),
+                   sum),
+            across(ends_with("_SE"),
+                   ~ sqrt(sum(.^2, na.rm = T))),
+            .groups = "drop") %>%
+  bind_rows(summarise(spwn_rch,
                       Hatchery = sum(Hatchery),
                       Natural = sum(Natural),
                       Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
@@ -652,15 +653,9 @@ spwn_rch %>%
               mutate(h_cv = Hatchery_SE / Hatchery,
                      n_cv = Natural_SE / Natural,
                      River = "Total",
-                     Area = "Total") %>%
-              mutate(across(c(Hatchery, Natural),
-                            round_half_up))) %>%
-  group_by(River, Location) %>%
-  summarize(across(c(Hatchery, Natural),
-                   sum),
-            across(ends_with("_SE"),
-                   ~ sqrt(sum(.^2, na.rm = T))),
-            .groups = "drop") %>%
+                     Area = "Total")) %>%
+  mutate(across(c(Hatchery, Natural),
+                round_half_up)) %>%
   arrange(Location) %>%
   mutate(h_cv = Hatchery_SE / Hatchery,
          n_cv = Natural_SE / Natural) %>%
@@ -671,10 +666,6 @@ spwn_rch %>%
                                                 '-', 
                                                 as.character(round(n_cv, 2))), ")")) %>%
   select(River, Location, Natural = n_prnt, Hatchery = h_prnt) %>%
-  # mutate(across(Location,
-  #               recode,
-  #               "TUM_bb" = "Above TUM (mainstem)",
-  #               "Below_TUM" = "Below TUM (mainstem)"))
   relocate(Hatchery,
            .after = last_col()) %>%
   kable(caption = "Estimates (CV) of spawners by area and origin.",
@@ -685,7 +676,6 @@ spwn_rch %>%
            hline_after = T) %>%
   row_spec(row = n_distinct(spwn_rch$Location) + 1, 
            bold = T)
-
 ```
 
 

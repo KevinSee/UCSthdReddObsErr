@@ -23,7 +23,6 @@ fit_gauc = function(data,
 
   model_fam = match.arg(model_fam)
 
-
   g_pois = glm(redds ~ day + I(day^2),
                data = data,
                family = quasipoisson)

@@ -12,6 +12,8 @@
 #' @param net_se_nm quoted name of column in {redd_df} listing standard error of net error estimate for that survey
 #' @param min_non0_wks minimum number of weeks with at least one new redd observed
 #' @param min_redds minimum number of total redds observed
+#' @param add_zeros should leading and trailing zero counts be added if the first and last counts aren't already zero? Default is {FALSE}.
+#'
 #'
 #' @import dplyr msm
 #' @return dataframe
@@ -24,54 +26,82 @@ estimateRedds = function(redd_df = NULL,
                          net_err_nm = "NetError",
                          net_se_nm = "NetErrorSE",
                          min_non0_wks = 3,
-                         min_redds = 2) {
+                         min_redds = 2,
+                         add_zeros = F,
+                         ...) {
 
   if(is.null(redd_df)) {
     stop("redd data must be supplied")
   }
 
   redd_results = redd_df %>%
-    rename(NewRedds = {{new_redd_nm}},
-           VisibleRedds = {{vis_redd_nm}},
-           NetError = {{net_err_nm}},
-           NetErrorSE = {{net_se_nm}}) %>%
+    select(all_of({{ group_vars }}),
+           new_redds = {{ new_redd_nm }},
+           vis_redds = {{ vis_redd_nm }},
+           net_err = {{ net_err_nm }},
+           net_se = {{ net_se_nm }}) %>%
     group_by(across({{ group_vars }})) %>%
     summarise(n_weeks = n(),
-              n_non0_wks = sum(NewRedds > 0, na.rm=T),
-              tot_feat = sum(NewRedds, na.rm=T),
-              err_est = mean(NetError[VisibleRedds > 0]),
-              err_se = mean(NetErrorSE[VisibleRedds > 0]),
+              n_non0_wks = sum(new_redds > 0, na.rm=T),
+              tot_feat = sum(new_redds, na.rm=T),
+              err_est = mean(net_err[vis_redds > 0], na.rm = T),
+              err_se = mean(net_se[vis_redds > 0], na.rm = T),
               .groups = "drop") %>%
-    mutate(err_se = ifelse(is.na(err_est), 0, err_se),
-           err_est = ifelse(is.na(err_est), 1, err_est)) %>%
+    mutate(err_se = if_else(is.na(err_est), 0, err_se),
+           err_est = if_else(is.na(err_est), 1, err_est)) %>%
     full_join(redd_df %>%
                 group_by(across({{ group_vars }})) %>%
-                nest()) %>%
+                nest(),
+              by = {{ group_vars}}) %>%
     mutate(gauc_list = map(data,
                            .f = function(x) {
                              mod_df = x %>%
-                               select(redds = NewRedds) %>%
+                               select(redds = {{ new_redd_nm }}) %>%
                                mutate(day = 1:n())
 
+                             if(add_zeros) {
+                               if(mod_df$redds[mod_df$day == min(mod_df$day)] != 0) {
+                                 mod_df <- mod_df %>%
+                                   bind_rows(tibble(redds = 0,
+                                                    day = min(mod_df$day) - 1)) %>%
+                                   arrange(day) %>%
+                                   mutate(day = 1:n())
+                               }
+                               if(mod_df$redds[mod_df$day == max(mod_df$day)] != 0) {
+                                 mod_df <- mod_df %>%
+                                   bind_rows(tibble(redds = 0,
+                                                    day = max(mod_df$day) + 1)) %>%
+                                   arrange(day)
+                               }
+                             }
+
                              v_vec = x %>%
-                               filter(VisibleRedds > 0) %>%
-                               summarise_at(vars(NetError, NetErrorSE),
+                               rename(vis_redds = {{ vis_redd_nm }},
+                                      net_err = {{ net_err_nm }},
+                                      net_se = {{ net_se_nm }}) %>%
+                               filter(vis_redds > 0) %>%
+                               summarise_at(vars(net_err, net_se),
                                             list(mean),
                                             na.rm = T) %>%
-                               mutate(NetErrorSE = if_else(is.na(NetError),
+                               mutate(net_se = if_else(is.na(net_err),
                                                            0,
-                                                           NetErrorSE),
-                                      NetError = if_else(is.na(NetError),
+                                                       net_se),
+                                      net_err = if_else(is.na(net_err),
                                                          1,
-                                                         NetError))
+                                                        net_err))
 
                              # # if you want to assume no observer error
-                             # v_vec = tibble(NetError = 1,
-                             #                NetErrorSE = 0)
+                             # v_vec = tibble(net_err = 1,
+                             #                net_se = 0)
 
                              res_list = fit_gauc(data = mod_df,
-                                                 v = v_vec$NetError,
-                                                 v_se = v_vec$NetErrorSE)
+                                                 v = v_vec$net_err,
+                                                 v_se = v_vec$net_se,
+                                                 ...)
+
+                             res_list <- c(res_list,
+                                           list("mod_data" = mod_df))
+
                              return(res_list)
                            })) %>%
     mutate(converged = map_lgl(gauc_list,

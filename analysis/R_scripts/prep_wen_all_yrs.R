@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Wenatchee
 # Created: 12/9/2022
-# Last Modified: 12/9/2022
+# Last Modified: 12/21/2022
 # Notes:
 
 #-----------------------------------------------------------------
@@ -243,6 +243,16 @@ for(yr in c(2014:2022)) {
   #-----------------------------------------------------------------
   # read in redd counts below PIT tag arrays
   if(yr %in% c(2014:2021)) {
+
+    if(sum(c("C1", "N1", "P1") %in% unique(redd_org$Reach)) > 0) {
+      redds_below_arrays <- redd_org %>%
+        filter(Reach %in% c("C1", "N1", "P1")) %>%
+        mutate(Index = "Tributary")
+
+      redd_org %<>%
+        filter(!Reach %in% c("C1", "N1", "P1"))
+    } else {
+
     redds_below_arrays = read_excel(here('analysis/data/raw_data',
                                          'Tributary Redds_Below Arrays_2014 to 2021.xlsx'),
                                     skip = 1) %>%
@@ -276,6 +286,7 @@ for(yr in c(2014:2022)) {
              Location,
              NetError,
              NetErrorSE)
+    }
   }
 
   if(yr == 2022) {
@@ -369,7 +380,7 @@ for(yr in c(2014:2022)) {
 
   # load DABOM results, including prepped data
   # load(paste0('../DabomPriestRapidsSthd/analysis/data/derived_data/PITcleanr/UC_Steelhead_', yr, '.rda'))
-  load('O:/Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/site_config.rda')
+  # load('O:/Documents/Git/MyProjects/DabomPriestRapidsSthd/analysis/data/derived_data/site_config.rda')
 
   # what dam counts are the abundance estimates derived from?
   if(yr %in% c(2011:2015, 2018)) {
@@ -454,6 +465,68 @@ for(yr in c(2014:2022)) {
     ungroup() %>%
     mutate(phos = n_hatch / n_origin,
            phos_se = sqrt((phos * (1 - phos)) / (n_origin)))
+
+#
+#   #---------------------------------------------------------
+#   # divide Tumwater bb escapement into origin and sex groups
+#   # estimate escapement, subtract known removals by origin and sex
+#   tum_est <- escape_summ %>%
+#     filter(location == "TUM_bb") %>%
+#     select(Origin = origin, location, median, sd) %>%
+#     left_join(wen_tags %>%
+#                 filter(Location == "TUM_bb") %>%
+#                 count(Origin, Sex) %>%
+#                 group_by(Origin) %>%
+#                 mutate(sex_prop = n / sum(n),
+#                        sex_prop_se = sqrt((sex_prop * (1 - sex_prop)) / sum(n)))) %>%
+#     rowwise() %>%
+#     mutate(escp = median * sex_prop,
+#            escp_se = deltamethod(~ x1 * x2,
+#                                  mean = c(median,
+#                                           sex_prop),
+#                                  cov = diag(c(sd,
+#                                               sex_prop_se)^2))) %>%
+#     ungroup() %>%
+#     select(location,
+#            Origin,
+#            Sex,
+#            starts_with("escp")) %>%
+#     mutate(rem = 0) %>%
+#     mutate(est = escp - rem)
+#
+#   # generate fish / redd and pHOS statistics from remaining fish
+#   fpr_df <- tum_est %>%
+#     summarize(m_tot = sum(est[Sex == "M"]),
+#               m_se = sqrt(sum(escp_se[Sex == "M"]^2)),
+#               f_tot = sum(est[Sex == "F"]),
+#               f_se = sqrt(sum(escp_se[Sex == "F"]^2)),
+#               h_tot = sum(est[Origin == "H"]),
+#               h_se = sqrt(sum(escp_se[Origin == "H"]^2)),
+#               w_tot = sum(est[Origin == "W"]),
+#               w_se = sqrt(sum(escp_se[Origin == "W"]^2))) %>%
+#     mutate(fpr = m_tot / f_tot + 1,
+#            fpr_se = deltamethod(~ x1 / x2 + 1,
+#                                 mean = c(m_tot,
+#                                          f_tot),
+#                                 cov = diag(c(m_se,
+#                                              f_se)^2)),
+#            phos = h_tot / (h_tot + w_tot),
+#            phos_se = deltamethod(~ x1 / (x1 + x2),
+#                                  mean = c(h_tot,
+#                                           w_tot),
+#                                  cov = diag(c(h_se,
+#                                               w_se)^2))) %>%
+#     add_column(Location = c("TUM_bb"),
+#                .before = 1) %>%
+#     select(Location,
+#            starts_with("fpr"),
+#            starts_with("phos"))
+#
+#   # assign this fish/redd and pHOS value to mainstem below Tumwater too
+#   fpr_df %<>%
+#     bind_rows(fpr_df %>%
+#                 mutate(Location = "Below_TUM"))
+
 
 
   #-----------------------------------------------------------------
