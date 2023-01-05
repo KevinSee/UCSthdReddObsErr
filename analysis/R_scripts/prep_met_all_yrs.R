@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Methow
 # Created: 12/12/2022
-# Last Modified: 12/12/2022
+# Last Modified: 1/5/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -200,6 +200,99 @@ yr = 2022
     ungroup() %>%
     mutate(phos = n_hatch / n_origin,
            phos_se = sqrt((phos * (1 - phos)) / (n_origin)))
+
+  # adjust fish / redd for years when Priest sex calls are questionable
+  if(yr %in% c(2022)) {
+    data("sex_err_rate")
+
+    adj_fpr <- fpr_df %>%
+      select(Location,
+             n_male,
+             n_female) %>%
+      pivot_longer(cols = c(n_male,
+                            n_female),
+                   names_to = "sex",
+                   values_to = "n_fish") %>%
+      mutate(across(sex,
+                    str_remove,
+                    "^n_"),
+             across(sex,
+                    str_to_title)) %>%
+      left_join(sex_err_rate %>%
+                  filter(brood_year == yr) %>%
+                  mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags)) %>%
+                  select(sex,
+                         starts_with("perc_"))) %>%
+      mutate(across(sex,
+                    recode,
+                    "Male" = "M",
+                    "Female" = "F")) %>%
+      pivot_wider(names_from = sex,
+                  values_from = c(n_fish,
+                                  perc_false,
+                                  perc_se)) %>%
+      mutate(true_male = n_fish_M - (n_fish_M * perc_false_M) + (n_fish_F * perc_false_F),
+             true_female = n_fish_F - (n_fish_F * perc_false_F) + (n_fish_M * perc_false_M),
+             across(starts_with("true"),
+                    round_half_up)) %>%
+      rowwise() %>%
+      mutate(true_m_se = msm::deltamethod(~ x1 - (x1 * x2) + (x3 * x4),
+                                          mean = c(n_fish_M,
+                                                   perc_false_M,
+                                                   n_fish_F,
+                                                   perc_false_F),
+                                          cov = diag(c(0,
+                                                       perc_se_M,
+                                                       0,
+                                                       perc_se_F)^2)),
+             true_f_se = msm::deltamethod(~ x1 - (x1 * x2) + (x3 * x4),
+                                          mean = c(n_fish_F,
+                                                   perc_false_F,
+                                                   n_fish_M,
+                                                   perc_false_M),
+                                          cov = diag(c(0,
+                                                       perc_se_F,
+                                                       0,
+                                                       perc_se_M)^2))) %>%
+      mutate(n_sexed = true_male + true_female,
+             prop_m = true_male / (true_male + true_female),
+             prop_se = deltamethod(~ x1 / (x1 + x2),
+                                   mean = c(true_male,
+                                            true_female),
+                                   cov = diag(c(true_m_se,
+                                                true_f_se)^2)),
+             fpr = (prop_m) / (1 - prop_m) + 1,
+             fpr_se = deltamethod(~ x1 / (1 - x1) + 1,
+                                  mean = prop_m,
+                                  cov = prop_se^2)) %>%
+      ungroup() %>%
+      rename(n_male = true_male,
+             n_female = true_female) %>%
+      left_join(fpr_df %>%
+                  select(Location,
+                         n_wild:n_hor_c,
+                         starts_with("phos"))) %>%
+      select(any_of(names(fpr_df)))
+
+    # if any fpr values are Inf, use the older ones
+    adj_fpr %<>%
+      left_join(fpr_df %>%
+                  select(Location,
+                         old_fpr = fpr,
+                         old_se = fpr_se)) %>%
+      mutate(fpr = if_else(is.na(fpr) | fpr == Inf,
+                           old_fpr,
+                           fpr),
+             fpr_se = if_else(is.na(fpr_se) | fpr_se == Inf,
+                              old_se,
+                              fpr_se)) %>%
+      select(-starts_with("old"))
+
+    fpr_df <- adj_fpr
+
+    rm(adj_fpr)
+  }
+
 
 
   #-----------------------------------------------------------------
