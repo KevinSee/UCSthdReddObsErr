@@ -515,6 +515,7 @@ Estimates of escapement to various tributaries in the Methow were made using a D
 To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower mainstem Methow, but not into tributaries (between PTAGIS sites LMR and MRW). FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the lower mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
 <!-- For reaches in tributaries below the tributary PIT tag array, FpR and proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary. -->
 
+<!-- For `r yr`, we noticed a discrepancy in the sex calls at Priest Rapids and the sex calls from broodstock collection at Wells Hatchery and in the Wenatchee. Therefore, we developed a correction factor that accounts for the error rate in female and male calls independently, and adjusts the fish / redd estimate accordingly. The error rate of sex calls at Priest are shown in Appendix \@ref(appendA) in Table \@ref(tab:sex-err). -->
 
 ## Prespawn Mortality
 
@@ -993,18 +994,29 @@ The data for this report was collected by Washington Department of Fish and Wild
 
 <!-- \newpage -->
 
-<!-- ### Colophon -->
 
-<!-- This report was generated on `r Sys.time()` using the following computational environment and dependencies:  -->
+<!-- # (APPENDIX) Appendices {-}  -->
 
-<!-- ```{r colophon, cache = FALSE} -->
-<!-- # which R packages and versions? -->
-<!-- if ("devtools" %in% installed.packages()) devtools::session_info() -->
+<!-- # Sex Errors at Priest Rapids {#appendA} -->
+
+<!-- Fish collected for broodstock at Wells Hatchery and within the Wenatchee had a known sex. Based on PIT tag detections of this broodstock collection, those sexes could be compared with the sex call at Priest when the fish was initially tagged. Assuming that this error rate is systematic across the entire run within a brood year, we combined all tags with this kind of comparison. Table \@ref(tab:sex-err) shows the sample sizes and results.  -->
+
+<!-- ```{r sex-err} -->
+<!-- data("sex_err_rate") -->
+
+<!-- sex_err_rate %>% -->
+<!--   filter(brood_year == yr) %>% -->
+<!--   rlang::set_names(function(x) { -->
+<!--     x |>  -->
+<!--       str_replace("_", " ") |>  -->
+<!--       str_to_title() |>  -->
+<!--       str_replace("Ci", "CI") -->
+<!--   }) %>% -->
+<!--   kable(digits = 3, -->
+<!--         booktabs = T, -->
+<!--         linesep = "", -->
+<!--         caption = "Error rate in sex calls at Priest Rapids.") %>% -->
+<!--   kable_styling() -->
 <!-- ``` -->
 
-<!-- The current Git commit details are: -->
-
-<!-- ```{r} -->
-<!-- # what commit is this file at?  -->
-<!-- if ("git2r" %in% installed.packages() & git2r::in_repository(path = ".")) git2r::repository(here::here())   -->
-<!-- ``` -->
+<!-- These error rates were used to adjust the counts of male and female tags within particular spawning areas before re-calculating the fish/redd estimate. For example, the adjusted number of males would be the initial number of males, minus the number of initial males times the error rate for male identification, plus the number of initial females times the error rate for female identification.  -->

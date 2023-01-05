@@ -376,6 +376,8 @@ Estimates of escapement to various tributaries in the Wenatchee were made using 
 
 To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower or upper Wenatchee (below or above Tumwater dam), but not into tributaries upstream of Tumwater. FpR was calculated as the ratio of male to female fish, plus 1. Reaches W1 - W7 are below Tumwater, while reaches W8 - W10 are above Tumwater. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas above and below Tumwater. For reaches in tributaries below the tributary PIT tag array, FpR and proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary.
 
+For `r yr`, we noticed a discrepancy in the sex calls at Priest Rapids and the sex calls from broodstock collection at Wells Hatchery and in the Wenatchee. Therefore, we developed a correction factor that accounts for the error rate in female and male calls independently, and adjusts the fish / redd estimate accordingly. The error rate of sex calls at Priest are shown in Appendix \@ref(appendA) in Table \@ref(tab:sex-err).
+
 ## Prespawn Mortality
 
 After translating estimates of redds to estimates of spawners by origin, we can then compare the spawner estimates to escapement estimates made using PIT tags, and estimate a prespawn mortality rate. Taking the total PIT-tag based escapement estimate, by origin, to the Wenatchee, we then subtract any fish removed at Tumwater or Dryden for broodstock or surplus, as well as any deaths due to harvest (Table \@ref(tab:removals)), and then subtract the total estimate of spawners, including the tributaries, to provide an estimate of how many fish succumbed to prespawn mortality. Dividing that number by the total escapement estimate provides an estimate of the prespawn mortality rate, by origin, across the entire Wenatchee population. 
@@ -728,20 +730,31 @@ The data for this report was collected by Washington Department of Fish and Wild
 <!-- The following line ensures the references appear here for the MS Word or HTML output files, rather than right at the end of the document (this will not work for PDF files):  -->
 <div id="refs"></div>
 
-<!-- \newpage -->
+\newpage
 
-<!-- ### Colophon -->
 
-<!-- This report was generated on `r Sys.time()` using the following computational environment and dependencies:  -->
+# (APPENDIX) Appendices {-} 
 
-<!-- ```{r colophon, cache = FALSE} -->
-<!-- # which R packages and versions? -->
-<!-- if ("devtools" %in% installed.packages()) devtools::session_info() -->
-<!-- ``` -->
+# Sex Errors at Priest Rapids {#appendA}
 
-<!-- The current Git commit details are: -->
+Fish collected for broodstock at Wells Hatchery and within the Wenatchee had a known sex. Based on PIT tag detections of this broodstock collection, those sexes could be compared with the sex call at Priest when the fish was initially tagged. Assuming that this error rate is systematic across the entire run within a brood year, we combined all tags with this kind of comparison. Table \@ref(tab:sex-err) shows the sample sizes and results. 
 
-<!-- ```{r} -->
-<!-- # what commit is this file at?  -->
-<!-- if ("git2r" %in% installed.packages() & git2r::in_repository(path = ".")) git2r::repository(here::here())   -->
-<!-- ``` -->
+```{r sex-err}
+data("sex_err_rate")
+
+sex_err_rate %>%
+  filter(brood_year == yr) %>%
+  rlang::set_names(function(x) {
+    x |> 
+      str_replace("_", " ") |> 
+      str_to_title() |> 
+      str_replace("Ci", "CI")
+  }) %>%
+  kable(digits = 3,
+        booktabs = T,
+        linesep = "",
+        caption = "Error rate in sex calls at Priest Rapids.") %>%
+  kable_styling()
+```
+
+These error rates were used to adjust the counts of male and female tags within particular spawning areas before re-calculating the fish/redd estimate. For example, the adjusted number of males would be the initial number of males, minus the number of initial males times the error rate for male identification, plus the number of initial females times the error rate for female identification. 
