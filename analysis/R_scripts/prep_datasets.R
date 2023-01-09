@@ -291,6 +291,129 @@ sex_err_rate <- pra_call_comp %>%
   clean_names() %>%
   rename(perc_false = est)
 
+org_err_rate <- pra_call_comp %>%
+  filter(category == "origin") %>%
+  group_by(brood_year,
+           # qa_loc,
+           origin = Priest) %>%
+  summarize(n_tags = n_distinct(pit_tag_number),
+            n_true = sum(agree),
+            n_false = sum(!agree),
+            .groups = "drop") %>%
+  mutate(binom_ci = map2(n_false,
+                         n_tags,
+                         .f = function(x, y) {
+                           BinomCI(x, y) %>%
+                             as_tibble()
+                         })) %>%
+  unnest(binom_ci) %>%
+  clean_names() %>%
+  rename(perc_false = est)
+
+
 # save for use in package
 usethis::use_data(sex_err_rate,
                   overwrite = T)
+
+# # this version uses the biological data on the Teams site
+# # currently only for SY2022
+# pra_call_comp <- read_csv(here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd",
+#                                "inputs/Bio Data",
+#                                "2021 OLAFT Steelhead CME-2021-183-PRD final.csv")) %>%
+#   clean_names() %>%
+#   select(pit_tag,
+#          contains("sex"),
+#          contains("origin")) %>%
+#   add_column(brood_year = 2022,
+#              .before = 1) %>%
+#   pivot_longer(cols = c(contains("sex"),
+#                         contains("origin"))) %>%
+#   mutate(location = str_remove(name, "sex_"),
+#          location = str_remove(location, "origin_"),
+#          location = str_remove(location, "_origin"),
+#          category = if_else(str_detect(name, "sex"),
+#                             "sex",
+#                             if_else(str_detect(name, "origin"),
+#                                     "origin",
+#                                     NA_character_))) %>%
+#   select(-name) %>%
+#   distinct() %>%
+#   pivot_wider(names_from = location,
+#               values_from = value) %>%
+#   mutate(source = if_else(category == "origin",
+#                           "Scales",
+#                           source),
+#          agree = if_else(field == final,
+#                          T, F))
+#
+# sex_err_rate <- pra_call_comp %>%
+#   filter(category == "sex") %>%
+#   select(-scale) %>%
+#   filter(!is.na(final)) %>%
+#   group_by(brood_year,
+#            sex = field) %>%
+#   summarize(n_tags = n_distinct(pit_tag),
+#             n_true = sum(agree),
+#             n_false = sum(!agree),
+#             .groups = "drop") %>%
+#   mutate(binom_ci = map2(n_false,
+#                          n_tags,
+#                          .f = function(x, y) {
+#                            BinomCI(x, y) %>%
+#                              as_tibble()
+#                          })) %>%
+#   unnest(binom_ci) %>%
+#   clean_names() %>%
+#   rename(perc_false = est)
+#
+# org_err_rate <- pra_call_comp %>%
+#   filter(category == "origin") %>%
+#   filter(!is.na(final)) %>%
+#   group_by(brood_year,
+#            origin = field) %>%
+#   summarize(n_tags = n_distinct(pit_tag),
+#             n_true = sum(agree),
+#             n_false = sum(!agree),
+#             .groups = "drop") %>%
+#   mutate(binom_ci = map2(n_false,
+#                          n_tags,
+#                          .f = function(x, y) {
+#                            BinomCI(x, y) %>%
+#                              as_tibble()
+#                          })) %>%
+#   unnest(binom_ci) %>%
+#   clean_names() %>%
+#   rename(perc_false = est)
+
+#---------------------------
+# make one plot of sex error rates
+library(tidyverse)
+library(UCSthdReddObsErr)
+library(here)
+
+data("sex_err_rate")
+
+pd = 0.3
+sex_err_rate %>%
+  ggplot(aes(x = brood_year,
+             y = perc_false,
+             color = sex)) +
+  geom_errorbar(aes(ymin = lwr_ci,
+                    ymax = upr_ci),
+                position = position_dodge(pd),
+                width = 0) +
+  # geom_line(position = position_dodge(pd)) +
+  geom_point(aes(size = n_tags),
+             position = position_dodge(pd)) +
+  theme_bw() +
+  labs(x = "Brood Year",
+       y = "Wrong Call at Priest (%)",
+       color = "Priest\nSex",
+       size = "# Tags",
+       title = "Sex Call Comparison")
+
+ggsave(here("analysis/figures",
+            "PriestSexCalls.pdf"),
+       width = 8,
+       height = 6)
+
