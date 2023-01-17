@@ -196,6 +196,71 @@ thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
 usethis::use_data(thlwg_summ,
                   overwrite = T)
 
+#-----------------------------------------------------------------
+# reach length
+rch_lngth_org <- read_excel(here("analysis/data/raw_data",
+                                 "Final_Historical covariates Wenatchee Steelhead 5-23-22.xlsx"),
+                            "Reach Length") %>%
+  clean_names() %>%
+  rename(reach = reach_2,
+         reach_descp = reach_3) %>%
+  pivot_longer(cols = c(index,
+                        non_index),
+               names_to = "type",
+               values_to = "type_descp") %>%
+  filter(!is.na(type_descp)) %>%
+  relocate(length_km,
+           .after = type_descp) %>%
+  mutate(across(reach,
+                as_factor),
+         across(reach,
+                fct_expand,
+                "P3 (P2)"),
+         across(reach,
+                fct_relevel,
+                "P3 (P2)",
+                after = 13))
+
+rch_lngth <- rch_lngth_org %>%
+  filter(river != "Peshastin" |
+           reach == "P1") %>%
+  bind_rows(rch_lngth_org %>%
+              filter(str_detect(reach, "P"),
+                     reach != "P1",
+                     str_detect(type_descp,
+                                "No surveys",
+                                negate = T)) %>%
+              mutate(reach = if_else(type == "index",
+                                     "P3 (P2)",
+                                     as.character(reach)),
+                     across(reach,
+                            factor,
+                            levels = levels(rch_lngth_org$reach)),
+                     reach_descp = if_else(type == "index",
+                                           "Ingalls Ck. To Scott Ck.",
+                                           reach_descp)) %>%
+              group_by(river,
+                       reach,
+                       reach_descp,
+                       type) %>%
+              summarize(across(type_descp,
+                               paste,
+                               collapse = ", "),
+                        across(length_km,
+                               sum),
+                        .groups = "drop")) %>%
+  arrange(river, reach) %>%
+  mutate(index = recode(type,
+                        "index" = "Y",
+                        "non_index" = "N")) %>%
+  relocate(index,
+           .after = "type")
+
+
+#-----------------------------------------------------------------
+# save for use in package
+usethis::use_data(rch_lngth,
+                  overwrite = T)
 
 #-----------------------------------------------------------------
 # comparison of sex, origin and mark calls at Priest vs some broodstock collections
