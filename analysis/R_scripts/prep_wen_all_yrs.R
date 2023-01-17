@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Wenatchee
 # Created: 12/9/2022
-# Last Modified: 1/5/2023
+# Last Modified: 1/17/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -15,6 +15,13 @@ library(msm)
 library(UCSthdReddObsErr)
 library(PITcleanr)
 library(here)
+# library(measurements)
+
+#-----------------------------------------------------------------
+# replace MeanThalwegCV with values calculated from ALL measurements (across years)
+data("thlwg_summ")
+# use consistent definition of reach length
+data("rch_lngth")
 
 # what year are we prepping?
 # yr = 2014
@@ -37,30 +44,43 @@ for(yr in c(2014:2022)) {
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
       filter(River == "Wenatchee") %>%
-      rename(ExpSpTotal = MeanTotalExperience,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
              Index = IndexYOrN,
              SurveyType = SurveyTypeWeeklyOrPeak,
-             MeanEffortHrs = MeanEffort,
-             ReachArea = ReachAreaM2,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = MeanTotalExperience,
              MeanDischarge = DischargeCfs) %>%
-      left_join(read_excel(here('analysis/data/raw_data/', file_nm),
-                           sheet = 'Reach area') %>%
-                  mutate(Index = if_else(Type == "Index",
-                                         "Y",
-                                         "N")) %>%
-                  select(River, Reach, Index,
-                         Length, Width, Area)) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
+      # rename(ExpSpTotal = MeanTotalExperience,
+      #        MeanThalwegCV = MeanThalwegCv,
+      #        Index = IndexYOrN,
+      #        SurveyType = SurveyTypeWeeklyOrPeak,
+      #        MeanEffortHrs = MeanEffort,
+      #        ReachArea = ReachAreaM2,
+      #        MeanDischarge = DischargeCfs) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/', file_nm),
+      #                      sheet = 'Reach area') %>%
+      #             mutate(Index = if_else(Type == "Index",
+      #                                    "Y",
+      #                                    "N")) %>%
+      #             select(River, Reach, Index,
+      #                    Length, Width, Area)) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
 
   }
@@ -71,29 +91,42 @@ for(yr in c(2014:2022)) {
     redd_org = read_excel(here('analysis/data/raw_data/', file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = MeanTotalExperience,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
              Index = IndexYOrN,
              SurveyType = SurveyTypeWeeklyOrPeak,
-             MeanEffortHrs = MeanEffort,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = MeanTotalExperience,
              MeanDischarge = Discharge) %>%
-      left_join(read_excel(here('analysis/data/raw_data/', file_nm),
-                           sheet = 'Reach Area') %>%
-                  mutate(Index = if_else(Type == "Index",
-                                         "Y",
-                                         "N")) %>%
-                  select(River, Reach, Index,
-                         Length, Width, Area)) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
+      # rename(ExpSpTotal = MeanTotalExperience,
+      #        MeanThalwegCV = MeanThalwegCv,
+      #        Index = IndexYOrN,
+      #        SurveyType = SurveyTypeWeeklyOrPeak,
+      #        MeanEffortHrs = MeanEffort,
+      #        MeanDischarge = Discharge) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/', file_nm),
+      #                      sheet = 'Reach Area') %>%
+      #             mutate(Index = if_else(Type == "Index",
+      #                                    "Y",
+      #                                    "N")) %>%
+      #             select(River, Reach, Index,
+      #                    Length, Width, Area)) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
   }
 
@@ -104,27 +137,40 @@ for(yr in c(2014:2022)) {
     redd_org = read_excel(here('analysis/data/raw_data/', file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = MeanTotalExperience,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
              Index = IndexYOrN,
              SurveyType = SurveyTypeWeeklyOrPeak,
-             MeanEffortHrs = MeanEffort,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = MeanTotalExperience,
              MeanDischarge = Discharge) %>%
-      left_join(read_excel(here('analysis/data/raw_data/', file_nm),
-                           sheet = 'Reach Area')) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      # rename(ExpSpTotal = MeanTotalExperience,
+      #        MeanThalwegCV = MeanThalwegCv,
+      #        Index = IndexYOrN,
+      #        SurveyType = SurveyTypeWeeklyOrPeak,
+      #        MeanEffortHrs = MeanEffort,
+      #        MeanDischarge = Discharge) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/', file_nm),
+      #                      sheet = 'Reach Area')) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
   }
 
   if(yr == 2017) {
@@ -133,23 +179,36 @@ for(yr in c(2014:2022)) {
     redd_org = read_excel(here('analysis/data/raw_data/', file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv) %>%
-      left_join(read_excel(here('analysis/data/raw_data/', file_nm),
-                           sheet = 'Reach Area')) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = ExpTotal,
+             MeanDischarge) %>%
+      # rename(ExpSpTotal = ExpTotal,
+      #        MeanThalwegCV = MeanThalwegCv) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/', file_nm),
+      #                      sheet = 'Reach Area')) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(MeanEffortHrs, ReachArea, MeanThalwegCV),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
   }
 
   if(yr == 2018) {
@@ -159,24 +218,37 @@ for(yr in c(2014:2022)) {
                                file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv) %>%
-      left_join(read_excel(here('analysis/data/raw_data/',
-                                file_nm),
-                           sheet = 'ReachArea')) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = ExpTotal,
+             MeanDischarge) %>%
+      # rename(ExpSpTotal = ExpTotal,
+      #        MeanThalwegCV = MeanThalwegCv) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/',
+      #                           file_nm),
+      #                      sheet = 'ReachArea')) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
   }
 
   if(yr == 2019) {
@@ -186,24 +258,37 @@ for(yr in c(2014:2022)) {
                                file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv) %>%
-      left_join(read_excel(here('analysis/data/raw_data/',
-                                file_nm),
-                           sheet = 'ReachArea')) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = ExpTotal,
+             MeanDischarge) %>%
+      # rename(ExpSpTotal = ExpTotal,
+      #        MeanThalwegCV = MeanThalwegCv) %>%
+      # left_join(read_excel(here('analysis/data/raw_data/',
+      #                           file_nm),
+      #                      sheet = 'ReachArea')) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
   }
 
   if(yr == 2021) {
@@ -213,31 +298,44 @@ for(yr in c(2014:2022)) {
                                file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      mutate(MeanEffortHrs = hms(paste(hour(MeanEffortHrs),
-                                       minute(MeanEffortHrs),
-                                       second(MeanEffortHrs))),
-             MeanEffortHrs = as.duration(MeanEffortHrs) / dhours(1)) %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
-      # get reach lengths from earlier dataset
-      left_join(read_excel(here('analysis/data/raw_data/',
-                                "2019_SteelheadData.xlsx"),
-                           sheet = 'ReachArea') %>%
-                  select(-Area)) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      # mutate(MeanEffortHrs = hms(paste(hour(MeanEffortHrs),
+      #                                  minute(MeanEffortHrs),
+      #                                  second(MeanEffortHrs))),
+      #        MeanEffortHrs = as.duration(MeanEffortHrs) / dhours(1)) %>%
+      # rename(ExpSpTotal = ExpTotal,
+      #        MeanThalwegCV = MeanThalwegCv,
+      #        MeanDischarge = MeanDailyDiscahrge) %>%
+      # # get reach lengths from earlier dataset
+      # left_join(read_excel(here('analysis/data/raw_data/',
+      #                           "2019_SteelheadData.xlsx"),
+      #                      sheet = 'ReachArea') %>%
+      #             select(-Area)) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
   }
 
   #-----------------------------------------------------------------
@@ -297,31 +395,44 @@ for(yr in c(2014:2022)) {
                                file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      mutate(MeanEffortHrs = hms(paste(hour(MeanEffortHrs),
-                                       minute(MeanEffortHrs),
-                                       second(MeanEffortHrs))),
-             MeanEffortHrs = as.duration(MeanEffortHrs) / dhours(1)) %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
-      # get reach lengths from earlier dataset
-      left_join(read_excel(here('analysis/data/raw_data/',
-                                "2019_SteelheadData.xlsx"),
-                           sheet = 'ReachArea') %>%
-                  select(-Area)) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (Length / 1000),
-             MeanWidth_m = ReachArea / Length) %>%
-      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-      mutate_at(vars(MeanThalwegCV),
-                list(~ . * 100))
+      # mutate(MeanEffortHrs = hms(paste(hour(MeanEffortHrs),
+      #                                  minute(MeanEffortHrs),
+      #                                  second(MeanEffortHrs))),
+      #        MeanEffortHrs = as.duration(MeanEffortHrs) / dhours(1)) %>%
+      # rename(ExpSpTotal = ExpTotal,
+      #        MeanThalwegCV = MeanThalwegCv,
+      #        MeanDischarge = MeanDailyDiscahrge) %>%
+      # # get reach lengths from earlier dataset
+      # left_join(read_excel(here('analysis/data/raw_data/',
+      #                           "2019_SteelheadData.xlsx"),
+      #                      sheet = 'ReachArea') %>%
+      #             select(-Area)) %>%
+      # mutate_at(vars(River, Reach, Index, SurveyType),
+      #           list(as.factor)) %>%
+      # mutate_at(vars(NewRedds, MeanEffortHrs, ReachArea, MeanThalwegCV, Width),
+      #           list(as.numeric)) %>%
+      # mutate_at(vars(SurveyDate),
+      #           list(ymd)) %>%
+      # mutate(across(Length,
+      #               conv_unit,
+      #               from = "ft",
+      #               to = "m")) %>%
+      # mutate(Day = yday(SurveyDate),
+      #        ExpSpTotal_log = log(ExpSpTotal + 1),
+      #        NaiveDensity_km = VisibleRedds / (Length / 1000),
+      #        MeanWidth_m = ReachArea / Length) %>%
+      mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) #%>%
+      # mutate_at(vars(MeanThalwegCV),
+      #           list(~ . * 100))
 
     redds_below_arrays = read_excel(here('analysis/data/raw_data',
                                          file_nm),
@@ -336,30 +447,45 @@ for(yr in c(2014:2022)) {
       clean_names(case = "big_camel") %>%
       mutate(Location = River) %>%
       select(any_of(names(redd_org)),
-             Location) %>%
-      mutate(across(MeanEffortHrs,
-                    ~ minute(.) / 60),
-             across(ReachArea,
-                    as.numeric))
+             Location)# %>%
+      # mutate(across(MeanEffortHrs,
+      #               ~ minute(.) / 60),
+      #        across(ReachArea,
+      #               as.numeric))
   }
 
 
 
   #-----------------------------------------------------------------
   # manipulate some of the data
+  # add some of the covariates that are constant year-to-year
 
-  # replace MeanThalwegCV with values calculated from ALL measurements (across years)
-  data("thlwg_summ")
   redd_org %<>%
-    rename(thlwg_org = MeanThalwegCV) %>%
+    left_join(rch_lngth %>%
+                clean_names(case = "upper_camel") %>%
+                select(River,
+                       Reach,
+                       Index,
+                       LengthKm)) %>%
     left_join(thlwg_summ %>%
-                select(Reach, MeanThalwegCV)) %>%
-    mutate(MeanThalwegCV = if_else(is.na(MeanThalwegCV),
-                                   thlwg_org,
-                                   MeanThalwegCV)) %>%
-    select(-thlwg_org) %>%
-    mutate(Reach = factor(Reach,
-                          levels = levels(redd_org$Reach)))
+                mutate(Index = "Y") %>%
+                select(Reach,
+                       Index,
+                       MeanThalwegCV)) %>%
+    mutate(ExpSpTotal_log = log(ExpSpTotal + 1),
+           NaiveDensity_km = VisibleRedds / LengthKm)
+
+
+  # redd_org %<>%
+  #   rename(thlwg_org = MeanThalwegCV) %>%
+  #   left_join(thlwg_summ %>%
+  #               select(Reach, MeanThalwegCV)) %>%
+  #   mutate(MeanThalwegCV = if_else(is.na(MeanThalwegCV),
+  #                                  thlwg_org,
+  #                                  MeanThalwegCV)) %>%
+  #   select(-thlwg_org) %>%
+  #   mutate(Reach = factor(Reach,
+  #                         levels = levels(redd_org$Reach)))
 
   # determine if reaches are in upper or lower mainstem
   redd_org %<>%
