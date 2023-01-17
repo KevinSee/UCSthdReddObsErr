@@ -15,6 +15,7 @@ library(lubridate)
 two_obs_redd_data = read_csv('analysis/data/raw_data/Master_Observer Efficiency_2012-2013_1-3-14.csv') %>%
   mutate(Date = mdy(Date)) %>%
   select(Year:Surveyor,
+         ReachLength_km,
          Date,
          VisibleRedds,
          TotalFeatures,
@@ -59,13 +60,13 @@ two_obs_net_mod = glm(NetError ~ ExpSpTotal_log + MeanDischarge + MeanThalwegCV 
 #-----------------------------------------------------------------
 # save some things
 write_rds(two_obs_redd_data,
-          path = 'analysis/data/derived_data/two_obs_original_data.rds')
+          file = 'analysis/data/derived_data/two_obs_original_data.rds')
 write_rds(two_obs_mod_data,
-          path = 'analysis/data/derived_data/two_obs_model_data.rds')
+          file = 'analysis/data/derived_data/two_obs_model_data.rds')
 write_rds(two_obs_net_mod,
-          path = 'analysis/data/derived_data/two_obs_net_error_model.rds')
+          file = 'analysis/data/derived_data/two_obs_net_error_model.rds')
 write_rds(two_obs_covar_center,
-          path = 'analysis/data/derived_data/two_obs_covar_center.rds')
+          file = 'analysis/data/derived_data/two_obs_covar_center.rds')
 
 
 #-----------------------------------------------------------------
