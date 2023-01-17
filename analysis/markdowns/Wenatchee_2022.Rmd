@@ -10,16 +10,18 @@ institute:
   - wdfw: Washington Department of Fish & Wildlife
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
-    bookdown::pdf_document2:
+    wdfwTemplates::wdfw_html_format2:
       fig_caption: yes
-      fig_height: 5
+      fig_height: 6
       fig_width: 6
       toc: yes
-      includes:
-        in_header: ../templates/header_wdfw.tex
+      toc_depth: 3
+      toc_float:
+        collapsed: yes
+        smooth_scroll: yes
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
@@ -35,18 +37,16 @@ output:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
-    wdfwTemplates::wdfw_html_format2:
+    bookdown::pdf_document2:
       fig_caption: yes
-      fig_height: 6
+      fig_height: 5
       fig_width: 6
       toc: yes
-      toc_depth: 3
-      toc_float:
-        collapsed: yes
-        smooth_scroll: yes
+      includes:
+        in_header: ../templates/header_wdfw.tex
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
