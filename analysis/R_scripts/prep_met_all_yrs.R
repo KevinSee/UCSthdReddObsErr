@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Methow
 # Created: 12/12/2022
-# Last Modified: 1/5/2023
+# Last Modified: 1/18/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -50,10 +50,14 @@ yr = 2022
              ExpSpTotal_log = log(ExpSpTotal + 1),
              NaiveDensity_km = VisibleRedds / (ReachLength / 1000))
 
+    # any redds below PIT tag arrays?
+    redds_below_arrays = NULL
+
   }
 
   if(yr == 2022) {
-    file_nm = "2022 Methow Steelhead data for model.xlsx"
+    # file_nm = "2022 Methow Steelhead data for model.xlsx"
+    file_nm = "2022 Methow Steelhead data for model-with tribs.xlsx"
 
     redd_org = read_excel(here('analysis/data/raw_data',
                                file_nm),
@@ -73,6 +77,20 @@ yr = 2022
       mutate(Day = yday(SurveyDate),
              ExpSpTotal_log = log(ExpSpTotal + 1),
              NaiveDensity_km = VisibleRedds / (ReachLength / 1000))
+
+    # any redds below PIT tag arrays?
+    redds_below_arrays = read_excel(here('analysis/data/raw_data',
+                                         file_nm),
+                                    sheet = "Tribs") %>%
+      clean_names(case = "upper_camel") %>%
+      mutate(Location = recode(Reach,
+                               "MH1" = "Methow Fish Hatchery",
+                               "T1" = "Twisp",
+                               "WN1" = "Spring Creek"),
+             Index = "Tributaries") %>%
+      select(any_of(names(redd_org)),
+             Location)
+
 
   }
 
@@ -100,10 +118,6 @@ yr = 2022
   # predict net error
   redd_df = predict_neterr(redd_org,
                            num_obs = "two")
-
-  #-----------------------------------------------------------------
-  # any redds below PIT tag arrays?
-  redds_below_arrays = NULL
 
   #-----------------------------------------------------------------
   # pull in PIT tag escapement results for use in converting redds to spawners
