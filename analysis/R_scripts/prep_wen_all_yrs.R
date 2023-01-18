@@ -466,12 +466,14 @@ for(yr in c(2014:2022)) {
                 select(River,
                        Reach,
                        Index,
-                       LengthKm)) %>%
+                       LengthKm),
+              by = c("River", "Reach", "Index")) %>%
     left_join(thlwg_summ %>%
                 mutate(Index = "Y") %>%
                 select(Reach,
                        Index,
-                       MeanThalwegCV)) %>%
+                       MeanThalwegCV),
+              by = c("Reach", "Index")) %>%
     mutate(ExpSpTotal_log = log(ExpSpTotal + 1),
            NaiveDensity_km = VisibleRedds / LengthKm)
 
