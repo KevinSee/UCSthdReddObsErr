@@ -10,18 +10,16 @@ institute:
   - wdfw: Washington Department of Fish & Wildlife
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 output: 
-    wdfwTemplates::wdfw_html_format2:
+    bookdown::pdf_document2:
       fig_caption: yes
-      fig_height: 6
+      fig_height: 5
       fig_width: 6
       toc: yes
-      toc_depth: 3
-      toc_float:
-        collapsed: yes
-        smooth_scroll: yes
+      includes:
+        in_header: ../templates/header_wdfw.tex
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::html_document2:
       fig_caption: yes
@@ -37,16 +35,18 @@ output:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
-    bookdown::pdf_document2:
+    wdfwTemplates::wdfw_html_format2:
       fig_caption: yes
-      fig_height: 5
+      fig_height: 6
       fig_width: 6
       toc: yes
-      includes:
-        in_header: ../templates/header_wdfw.tex
+      toc_depth: 3
+      toc_float:
+        collapsed: yes
+        smooth_scroll: yes
       pandoc_args:
       - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
     bookdown::word_document2:
       fig_caption: yes
@@ -169,7 +169,8 @@ results_lst <- redd_df %>%
                                                        "Location"),
                                          min_non0_wks = min_non0_wks,
                                          min_redds = min_redds,
-                                         use_cor = if_else(y == "Y", T, F))
+                                         use_cor = if_else(y == "Y", T, F),
+                                         add_zeros = T)
                         }))
 
 redd_results <- results_lst %>%
@@ -225,7 +226,10 @@ spwn_rch = redd_results %>%
                               NA)) %>%
   ungroup() %>%
   mutate(Reach = factor(Reach,
-                        levels = c(paste0("MRW", 1:8)))) %>%
+                        levels = c(paste0("MRW", 1:8),
+                                   "MH1",
+                                   "WN1",
+                                   "T1"))) %>%
   select(River, Location, Reach, 
          Type = Index, 
          Hatchery:Natural_SE) %>%
@@ -258,15 +262,27 @@ spwn_rch = redd_results %>%
                                       "Twisp",
                                       "Chewuch",
                                       "Spring Creek",
-                                      "Beaver"))) %>%
-  arrange(Location, Reach, Type) %>%
+                                      "Beaver")),
+         across(River,
+                factor,
+                levels = c("Methow",
+                           "Gold",
+                           "Libby",
+                           "Methow Fish Hatchery",
+                           "Upper Methow",
+                           "Twisp",
+                           "Chewuch",
+                           "Spring Creek",
+                           "Beaver"))) %>%
+  arrange(River, Location, Reach, Type) %>%
   mutate(h_cv = Hatchery_SE / Hatchery,
          n_cv = Natural_SE / Natural)
 ```
 
 ```{r}
 grp_prop_lm <- fpr_df %>%
-  filter(Location == "Lower Methow") %>%
+  # filter(Location == "Lower Methow") %>%
+  filter(Location %in% unique(redd_results$Location)) %>%
   select(Location,
          n_wild,
          n_hor_sn,
@@ -354,31 +370,33 @@ low_met_spwn <- redd_results %>%
   # select(River, Location, Reach, 
   #        Type = Index, 
   #        Natural_est:`HOR-C_SE`) %>%
-  mutate(Reach = factor(Reach,
-                        levels = c(paste0("MRW", 1:8)))) %>%
-  
+  mutate(across(Reach,
+                as_factor)) %>%
   mutate(Type = recode(Type,
                        'Y' = 'Index',
                        'N' = 'Non-Index'))
 
 
-
-
 spwn_strm <- low_met_spwn |>
-  group_by(Location, group) |>
+  group_by(River, 
+           Location,
+           group) |>
   summarize(across(est,
                    sum),
             across(se,
                    ~ sqrt(sum(.^2, na.rm = T))),
             .groups = "drop") |>
-  bind_cols(low_met_spwn |>
+  left_join(low_met_spwn |>
               select(River:Type,
                      contains("spwn")) |>
               distinct() %>%
+              group_by(River, Location) |> 
               summarize(across(spwn_est,
                                sum),
                         across(spwn_se,
-                               ~ sqrt(sum(.^2, na.rm = T))))) |>
+                               ~ sqrt(sum(.^2, na.rm = T))),
+                        .groups = "drop"),
+            by = c("River", "Location")) |>
   bind_rows(trib_spawners %>%
               select(-Location) %>%
               rename(Location = River) %>%
@@ -397,7 +415,9 @@ spwn_strm <- low_met_spwn |>
                                                    prop_se)^2))) %>%
               ungroup() %>%
               filter(!is.na(est)) %>%
-              select(Location,
+              mutate(River = Location) %>%
+              select(River, 
+                     Location,
                      starts_with("spwn"),
                      group,
                      est, se)) %>%
@@ -405,7 +425,31 @@ spwn_strm <- low_met_spwn |>
                 factor,
                 levels = c("Natural",
                            "HOR-SN",
-                           "HOR-C")))
+                           "HOR-C"))) %>%
+  group_by(River, 
+           Location, 
+           group) %>%
+  summarize(across(est,
+                   sum),
+            across(se,
+                   ~ sqrt(sum(.^2))),
+            across(spwn_est,
+                   ~ sum(unique(.))),
+            across(spwn_se,
+                   ~ sqrt(sum(unique(.)^2))),
+            .groups = "drop") %>%
+  select(-Location) %>%
+  mutate(across(River,
+                recode,
+                "Methow" = "Lower Methow"),
+         across(River,
+                as_factor),
+         across(River,
+                fct_relevel,
+                "Lower Methow",
+                after = 0)) %>%
+  arrange(River, 
+          group)
 ```
 
 
@@ -509,13 +553,11 @@ When summing reach-scale estimates to obtain estimates at the stream scale, an a
 
 ## Estimating Spawners
 
-Estimates of escapement to various tributaries in the Methow were made using a Dam Adult Branch Occupancy Model (DABOM) [@Waterhouse2020] based on PIT tag detections of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem). 
-<!-- Reaches below the PIT tag arrays in some tributaries were surveyed for redds, but we assumed there was no observer error in those reaches.  -->
+Estimates of escapement to various tributaries in the Methow were made using a Dam Adult Branch Occupancy Model (DABOM) [@Waterhouse2020] based on PIT tag detections of fish tagged at Priest Rapids dam. All fish that escaped to the various tributaries were assumed to be spawners (i.e. prespawn mortality only occurs in the mainstem). Reaches below the PIT tag arrays in some tributaries were surveyed for redds, but we assumed there was no observer error in those reaches.
 
-To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower mainstem Methow, but not into tributaries (between PTAGIS sites LMR and MRW). FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the lower mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. 
-<!-- For reaches in tributaries below the tributary PIT tag array, FpR and proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary. -->
+To convert estimates of redds in mainstem areas into estimates of natural and hatchery spawners, the estimates of redds were multiplied by a fish per redd (FpR) estimate and then by the proportion of hatchery or wild fish. The fish per redd estimate was based on PIT tags from the branching patch-occupancy model observed to move into the lower mainstem Methow, but not into tributaries (between PTAGIS sites LMR and MRW). FpR was calculated as the ratio of male to female fish, plus 1. Reaches MRW1 - MRW8 are all in the lower mainstem Methow below Winthrop. Similarly, the proportion of hatchery and natural origin fish was calculated from the same group of PIT tags for areas in the mainstem, and the various tributaries. For reaches in tributaries below the tributary PIT tag array, FpR and the proportion hatchery were calculated based on observed PIT tags moving into the lower regions of each tributary. For the reach just below the Methow hatchery outfall, we used FpR and pHOS from Spring Creek (SCP), because they are both hatchery channels of a similar water source in close proximity to each other.  
 
-<!-- For `r yr`, we noticed a discrepancy in the sex calls at Priest Rapids and the sex calls from broodstock collection at Wells Hatchery and in the Wenatchee. Therefore, we developed a correction factor that accounts for the error rate in female and male calls independently, and adjusts the fish / redd estimate accordingly. The error rate of sex calls at Priest are shown in Appendix \@ref(appendA) in Table \@ref(tab:sex-err). -->
+For `r yr`, we noticed a discrepancy in the sex calls at Priest Rapids and the sex calls from broodstock collection at Wells Hatchery and in the Wenatchee. Therefore, we developed a correction factor that accounts for the error rate in female and male calls independently, and adjusts the fish / redd estimate accordingly. The error rate of sex calls at Priest are shown in Appendix \@ref(appendA) in Table \@ref(tab:sex-err).
 
 ## Prespawn Mortality
 
@@ -739,23 +781,25 @@ fpr_df %>%
                 latex_options = "striped")
 ```
 
-Table \@ref(tab:spawn-est) shows estimates of spawners by origin within each reach of the lower Methow. Combining those adjusted redd-based estimates of spawners with PIT tag-based estimates of spawners in the tributaries, Table \@ref(tab:spwn-area) shows a summary of spawners by origin across various areas including the lower Methow mainstem and each tributary, as well as the population as a whole.
+Table \@ref(tab:spawn-est) shows estimates of spawners by origin within each reach of the lower Methow, including reaches in tributaries below the PIT tag array. Combining those adjusted redd-based estimates of spawners with PIT tag-based estimates of spawners in the tributaries, Table \@ref(tab:spwn-area) shows a summary of spawners by origin across various areas including the lower Methow mainstem and each tributary, as well as the population as a whole.
 
 ```{r spawn-est}
 low_met_spwn |>
-  select(-River) |>
+  select(-Location) |>
+  mutate(across(River,
+                recode,
+                "Methow" = "Lower Methow")) |> 
   bind_rows(low_met_spwn |>
               mutate(across(est,
                             round_half_up)) |>
-              group_by(Location,
-                       group) |>
+              group_by(group) |>
               summarize(across(c(spwn_est,
                                  est),
                                sum),
                         across(c(spwn_se,
                                  se),
                                ~ sqrt(sum(.^2, na.rm = T)))) |> 
-              mutate(Reach = "Total")) |>
+              mutate(River = "Total")) |>
   mutate(cv = se / est,
          spwn_cv = spwn_se / spwn_est) |>
   mutate(across(c(spwn_est,
@@ -781,7 +825,7 @@ low_met_spwn |>
                             " (",
                             spwn_cv,
                             ")")) |>
-  select(Location,
+  select(Location = River,
          Reach, Type,
          `Total Spawners` = spwn_prnt,
          group,
@@ -799,39 +843,6 @@ low_met_spwn |>
 ```
 
 
-```{r spawn-est-old, eval = F}
-spwn_rch %>%
-  mutate(Area = if_else(is.na(Reach),
-                        as.character(Location),
-                        as.character(Reach))) %>%
-  mutate(across(c(Hatchery, Natural),
-                round_half_up)) %>%
-  bind_rows(summarise(.,
-                      Hatchery = sum(Hatchery),
-                      Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
-                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
-              mutate(h_cv = Hatchery_SE / Hatchery,
-                     n_cv = Natural_SE / Natural,
-                     River = "Total",
-                     Area = "Total") %>%
-              mutate(across(c(Hatchery, Natural),
-                            round_half_up))) %>%
-  mutate(h_prnt = paste0(Hatchery, " (", if_else(is.na(h_cv), '-', as.character(round(h_cv, 2))), ")"),
-         n_prnt = paste0(Natural, " (", if_else(is.na(n_cv), '-', as.character(round(n_cv, 2))), ")")) %>%
-  select(River, Area, Type, Natural = n_prnt, Hatchery = h_prnt) %>%
-  kable(caption = "Estimates (CV) of spawners by area and origin.",
-        booktabs = T) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"),
-                latex_options = "striped") %>%
-  row_spec(row = nrow(spwn_rch),
-           hline_after = T) %>%
-  row_spec(row = nrow(spwn_rch) + 1, 
-           bold = T)
-```
-
-
-
 ```{r spwn-area}
 spwn_strm |>
   bind_rows(spwn_strm |>
@@ -842,9 +853,10 @@ spwn_strm |>
                                sum),
                         across(se,
                                ~ sqrt(sum(.^2, na.rm = T)))) |> 
-              mutate(Location = "Total") %>%
+              mutate(River = "Total") %>%
               bind_cols(spwn_strm |>
-                          select(Location,
+                          select(River, 
+                                 # Location,
                                  starts_with("spwn")) |>
                           distinct() %>%
                           summarize(across(spwn_est,
@@ -871,7 +883,10 @@ spwn_strm |>
   mutate(prnt_val = paste0(est, " (",
                            cv, 
                            ")")) |>
-  group_by(Location) |>
+  mutate(across(River,
+                recode,
+                "Methow" = "Lower Methow")) |> 
+  group_by(River) |>
   mutate(spwn_est = sum(est)) |>
   ungroup() |>
   mutate(spwn_prnt = paste0(prettyNum(spwn_est,
@@ -879,7 +894,8 @@ spwn_strm |>
                             " (",
                             spwn_cv,
                             ")")) |>
-  select(Location,
+  select(River, 
+         # Location,
          `Total Spawners` = spwn_prnt,
          group,
          prnt_val) |>
@@ -891,59 +907,10 @@ spwn_strm |>
         format.args = list(big.mark = ",")) |>
   kable_styling(bootstrap_options = c("striped", "hover"),
                 latex_options = "striped") |>
-  row_spec(row = n_distinct(spwn_strm$Location),
+  row_spec(row = n_distinct(spwn_strm$River),
            hline_after = T) |>
-  row_spec(row = n_distinct(spwn_strm$Location) + 1, 
+  row_spec(row = n_distinct(spwn_strm$River) + 1, 
            bold = T)
-```
-
-
-
-```{r spwn-area-old, eval = F}
-spwn_rch %>%
-  mutate(Area = if_else(is.na(Reach),
-                        as.character(Location),
-                        as.character(Reach))) %>%
-  mutate(across(c(Hatchery, Natural),
-                round_half_up)) %>%
-  bind_rows(summarise(.,
-                      Hatchery = sum(Hatchery),
-                      Natural = sum(Natural),
-                      Hatchery_SE = sqrt(sum(Hatchery_SE^2, na.rm = T)),
-                      Natural_SE = sqrt(sum(Natural_SE^2, na.rm = T))) %>%
-              mutate(h_cv = Hatchery_SE / Hatchery,
-                     n_cv = Natural_SE / Natural,
-                     River = "Total",
-                     Area = "Total") %>%
-              mutate(across(c(Hatchery, Natural),
-                            round_half_up))) %>%
-  group_by(River, Location) %>%
-  summarize(across(c(Hatchery, Natural),
-                   sum),
-            across(ends_with("_SE"),
-                   ~ sqrt(sum(.^2, na.rm = T))),
-            .groups = "drop") %>%
-  arrange(Location) %>%
-  mutate(h_cv = Hatchery_SE / Hatchery,
-         n_cv = Natural_SE / Natural) %>%
-  mutate(h_prnt = paste0(Hatchery, " (", if_else(is.na(h_cv), 
-                                                 '-', 
-                                                 as.character(round(h_cv, 2))), ")"),
-         n_prnt = paste0(Natural, " (", if_else(is.na(n_cv), 
-                                                '-', 
-                                                as.character(round(n_cv, 2))), ")")) %>%
-  select(River, Location, Natural = n_prnt, Hatchery = h_prnt) %>%
-  relocate(Hatchery,
-           .after = last_col()) %>%
-  kable(caption = "Estimates (CV) of spawners by area and origin.",
-        booktabs = T) %>%
-  kable_styling(bootstrap_options = c("striped", "hover"),
-                latex_options = "striped") %>%
-  row_spec(row = n_distinct(spwn_rch$Location),
-           hline_after = T) %>%
-  row_spec(row = n_distinct(spwn_rch$Location) + 1, 
-           bold = T)
-
 ```
 
 
@@ -972,18 +939,17 @@ ps_mort_met %>%
 
 # Discussion
 
-Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). 
-<!-- However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in only `r as.character(as.english(sum(redd_results$GAUC)))` reaches.  -->
+Most of the covariates collected in `r yr` were within the range of those in the model data set from @Murdoch2018, leading to estimates of net error in a very similar range to the model dataset (Figure \@ref(fig:covariate-comparison)). However, some reaches did not meet the minimum thresholds of number of observed redds or number of weeks with at least one new redd observed, so we used the GAUC method in `r as.character(as.english(sum(redd_results$GAUC)))` out of  `r as.character(as.english(nrow(redd_results)))` reaches.
 
-Natural origin steelhead PIT-tagged at Priest Rapids dam were not detected in Libby Creek this year, nor were HOR-C fish detected in Gold, Libby or the Upper Methow, leading to estimates of zero spawners for those origins in those tributaries (Table \@ref(tab:spwn-area)). Because these estimates are based on a sample of the entire Upper Columbia steelhead run, it's possible a handful of steelhead may have spawned in those tributaries, but it's potentially more likely that the estimate of zero steelhead spawners in those areas is correct.
+Natural origin steelhead PIT-tagged at Priest Rapids dam were not detected in Libby Creek this year, nor were HOR-C fish detected in Gold, Libby or the Upper Methow, leading to estimates of zero spawners for those origins in those tributaries (Table \@ref(tab:spwn-area)). Because these estimates are based on a sample of the entire Upper Columbia steelhead run, it's possible that a low number of steelhead may have spawned in those tributaries, but it's potentially more likely that the estimate of zero steelhead spawners in those areas is correct.
 
 <!-- The estimates of high prespawn mortality in the lower mainstem of the Methow for hatchery fish could be accurate, but it should be noted that many of the redd surveys failed to observe a single redd in many of the reaches (Table \@ref(tab:redd-est-rch)). Without any observed redds, any estimate of net error is moot, as the adjusted redd estimate will still be zero. So if all the redds were missed in some of those reaches, the estimate of total spawners in the lower mainstem should be higher, leading to a lower estimate of prespawn mortality. It is unclear whether that actually occurred, or if there were actually no redds this year in those reaches. -->
 
-<!-- Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In some cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none.  -->
+<!-- Some of the estimates of prespawn mortality were zero this year, due to higher estimates of spawners compared to escapement, at least after removals had been accounted for. In all cases, there were overlapping confidence intervals between spawners and escapement, so not too much should be made of that fact, and we interpret that as at least very low levels of prespawn mortality, perhaps even none. -->
 
 # Acknowledgements
 
-The data for this report was collected by Washington Department of Fish and Wildlife.
+The data for this report was collected by Washington Department of Fish and Wildlife, and funded by Douglas County Public Utility District.
 
 <!-- The following line inserts a page break  -->
 \newpage
@@ -992,31 +958,30 @@ The data for this report was collected by Washington Department of Fish and Wild
 <!-- The following line ensures the references appear here for the MS Word or HTML output files, rather than right at the end of the document (this will not work for PDF files):  -->
 <div id="refs"></div>
 
-<!-- \newpage -->
+\newpage
 
+# (APPENDIX) Appendices {-} 
 
-<!-- # (APPENDIX) Appendices {-}  -->
+# Sex Errors at Priest Rapids {#appendA}
 
-<!-- # Sex Errors at Priest Rapids {#appendA} -->
+Fish collected for broodstock at Wells Hatchery and within the Wenatchee had a known sex. Based on PIT tag detections of this broodstock collection, those sexes could be compared with the sex call at Priest when the fish was initially tagged. Assuming that this error rate is systematic across the entire run within a brood year, we combined all tags with this kind of comparison. Table \@ref(tab:sex-err) shows the sample sizes and results. 
 
-<!-- Fish collected for broodstock at Wells Hatchery and within the Wenatchee had a known sex. Based on PIT tag detections of this broodstock collection, those sexes could be compared with the sex call at Priest when the fish was initially tagged. Assuming that this error rate is systematic across the entire run within a brood year, we combined all tags with this kind of comparison. Table \@ref(tab:sex-err) shows the sample sizes and results.  -->
+```{r sex-err}
+data("sex_err_rate")
 
-<!-- ```{r sex-err} -->
-<!-- data("sex_err_rate") -->
+sex_err_rate %>%
+  filter(brood_year == yr) %>%
+  rlang::set_names(function(x) {
+    x |> 
+      str_replace("_", " ") |> 
+      str_to_title() |> 
+      str_replace("Ci", "CI")
+  }) %>%
+  kable(digits = 3,
+        booktabs = T,
+        linesep = "",
+        caption = "Error rate in sex calls at Priest Rapids.") %>%
+  kable_styling()
+```
 
-<!-- sex_err_rate %>% -->
-<!--   filter(brood_year == yr) %>% -->
-<!--   rlang::set_names(function(x) { -->
-<!--     x |>  -->
-<!--       str_replace("_", " ") |>  -->
-<!--       str_to_title() |>  -->
-<!--       str_replace("Ci", "CI") -->
-<!--   }) %>% -->
-<!--   kable(digits = 3, -->
-<!--         booktabs = T, -->
-<!--         linesep = "", -->
-<!--         caption = "Error rate in sex calls at Priest Rapids.") %>% -->
-<!--   kable_styling() -->
-<!-- ``` -->
-
-<!-- These error rates were used to adjust the counts of male and female tags within particular spawning areas before re-calculating the fish/redd estimate. For example, the adjusted number of males would be the initial number of males, minus the number of initial males times the error rate for male identification, plus the number of initial females times the error rate for female identification.  -->
+These error rates were used to adjust the counts of male and female tags within particular spawning areas before re-calculating the fish/redd estimate. For example, the adjusted number of males would be the initial number of males, minus the number of initial males times the error rate for male identification, plus the number of initial females times the error rate for female identification. 
