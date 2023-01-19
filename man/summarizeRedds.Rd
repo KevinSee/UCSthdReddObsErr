@@ -16,10 +16,11 @@ summarizeRedds(
   min_redds = 2,
   use_cor = F,
   date_nm = "SurveyDate",
-  redd_nm = "NewRedds",
+  cor_redd_nm = "NewRedds",
   reach_nm = "Reach",
   use = "pairwise.complete.obs",
   method = c("pearson", "kendall", "spearman"),
+  add_zeros = F,
   ...
 )
 }
@@ -44,7 +45,7 @@ summarizeRedds(
 
 \item{date_nm}{quoted name of column in {redd_df} listing date of each survey}
 
-\item{redd_nm}{quoted name of column in {redd_df} listing number of redds found during that survey}
+\item{cor_redd_nm}{quoted name of column in {redd_df} listing number of redds found during that survey, to be used in the correlation}
 
 \item{reach_nm}{quoted name of column in {redd_df} listing name of reach}
 
@@ -58,6 +59,8 @@ summarizeRedds(
     coefficient (or covariance) is to be computed.  One of
     \code{"pearson"} (default), \code{"kendall"}, or \code{"spearman"}:
     can be abbreviated.}
+
+\item{add_zeros}{should leading and trailing zero counts be added if the first and last counts aren't already zero? Default is {FALSE}.}
 }
 \value{
 dataframe

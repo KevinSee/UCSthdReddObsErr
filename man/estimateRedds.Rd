@@ -12,7 +12,9 @@ estimateRedds(
   net_err_nm = "NetError",
   net_se_nm = "NetErrorSE",
   min_non0_wks = 3,
-  min_redds = 2
+  min_redds = 2,
+  add_zeros = F,
+  ...
 )
 }
 \arguments{
@@ -29,6 +31,8 @@ estimateRedds(
 \item{min_non0_wks}{minimum number of weeks with at least one new redd observed}
 
 \item{min_redds}{minimum number of total redds observed}
+
+\item{add_zeros}{should leading and trailing zero counts be added if the first and last counts aren't already zero? Default is {FALSE}.}
 
 \item{group_var}{vector of column names from {redd_df} to group results by}
 }

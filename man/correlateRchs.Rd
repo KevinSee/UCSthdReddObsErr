@@ -7,7 +7,7 @@
 correlateRchs(
   redd_df = NULL,
   date_nm = "SurveyDate",
-  redd_nm = "NewRedds",
+  cor_redd_nm = "NewRedds",
   reach_nm = "Reach",
   use = "pairwise.complete.obs",
   ...
@@ -18,7 +18,7 @@ correlateRchs(
 
 \item{date_nm}{quoted name of column in {redd_df} listing date of each survey}
 
-\item{redd_nm}{quoted name of column in {redd_df} listing number of redds found during that survey}
+\item{cor_redd_nm}{quoted name of column in {redd_df} listing number of redds found during that survey, to be used in the correlation}
 
 \item{reach_nm}{quoted name of column in {redd_df} listing name of reach}
 }
