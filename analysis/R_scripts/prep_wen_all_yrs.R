@@ -52,6 +52,8 @@ for(yr in c(2014:2022)) {
              VisibleRedds,
              ExpSpTotal = MeanTotalExperience,
              MeanDischarge = DischargeCfs) %>%
+      mutate(across(SurveyType,
+                    str_to_title)) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
 
   }
