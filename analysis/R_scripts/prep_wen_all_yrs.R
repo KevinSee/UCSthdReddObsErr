@@ -151,6 +151,8 @@ for(yr in c(2014:2022)) {
              VisibleRedds,
              ExpSpTotal = ExpTotal,
              MeanDischarge) %>%
+      mutate(across(NewRedds,
+                    as.numeric)) %>%
       mutate(across(SurveyDate,
                     ~ ymd_hms(paste(., "00:00:00")))) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
