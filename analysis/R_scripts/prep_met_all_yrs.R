@@ -83,11 +83,16 @@ yr = 2022
                                          file_nm),
                                     sheet = "Tribs") %>%
       clean_names(case = "upper_camel") %>%
-      mutate(Location = recode(Reach,
-                               "MH1" = "Methow Fish Hatchery",
-                               "T1" = "Twisp",
-                               "WN1" = "Spring Creek"),
-             Index = "Tributaries") %>%
+      filter(!is.na(Reach)) %>%
+      mutate(across(River,
+                    recode,
+                    "Twisp River" = "Twisp",
+                    "Methow Hatchery outlet channel" = "Methow Fish Hatchery",
+                    "no log for this date" = "Spring Creek",
+                    "Winthrop NFH outfall (spring Creek)" = "Spring Creek"),
+             Location = recode(River,
+                               "Methow Fish Hatchery" = "Spring Creek"),
+             Index = "Tributary") %>%
       select(any_of(names(redd_org)),
              Location)
 
