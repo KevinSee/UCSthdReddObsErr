@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Methow
 # Created: 12/12/2022
-# Last Modified: 1/18/2023
+# Last Modified: 1/19/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -16,10 +16,16 @@ library(UCSthdReddObsErr)
 library(PITcleanr)
 library(here)
 
-# what year are we prepping?
-yr = 2022
 
-# for(yr in c(2021:2022)) {
+#-----------------------------------------------------------------
+# for adjusting fish/redd due to error rate in sex calls at Priest
+data("sex_err_rate")
+
+
+# what year are we prepping?
+# yr = 2022
+
+for(yr in c(2021:2022)) {
 
   if(yr == 2020) {
     next
@@ -221,8 +227,7 @@ yr = 2022
            phos_se = sqrt((phos * (1 - phos)) / (n_origin)))
 
   # adjust fish / redd for years when Priest sex calls are questionable
-  if(yr %in% c(2022)) {
-    data("sex_err_rate")
+  # if(yr %in% c(2022)) {
 
     adj_fpr <- fpr_df %>%
       select(Location,
@@ -310,7 +315,7 @@ yr = 2022
     fpr_df <- adj_fpr
 
     rm(adj_fpr)
-  }
+  # }
 
 
 
@@ -387,4 +392,4 @@ yr = 2022
        file = here('analysis/data/derived_data',
                    paste0('met_', yr, '.rda')))
 
-# }
+}
