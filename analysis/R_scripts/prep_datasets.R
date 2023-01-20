@@ -264,9 +264,11 @@ usethis::use_data(rch_lngth,
 
 #-----------------------------------------------------------------
 # comparison of sex, origin and mark calls at Priest vs some broodstock collections
-pra_call_comp <- read_excel(here("analysis/data/raw_data",
-                           "Wells-Priest steel comparison.xlsx"),
-                      skip = 1) %>%
+pra_call_comp <- read_excel(paste0("T:/DFW-Team FP Upper Columbia Escapement - General/",
+                                   "UC_Sthd/inputs/Bio Data/",
+                                   "Sex and Origin PRD-Brood Comparison Data/",
+                                   "2006-2022_Methow_STHD_ Wells-Priest_Sex_Origin.xlsx"),
+                            skip = 1) %>%
   clean_names() %>%
   select(brood_year:mark_9) %>%
   mutate(across(ends_with("year"),
@@ -288,54 +290,37 @@ pra_call_comp <- read_excel(here("analysis/data/raw_data",
   rename(Truth = Wells) %>%
   relocate(Truth, .after = last_col()) %>%
   # add data from the Wenatchee for a few years
-  bind_rows(read_excel(here("analysis/data/raw_data",
-                            "Priest-Wen Steelhead Comparison Brood 2021-23_010423.xlsx"),
+  bind_rows(read_excel(paste0("T:/DFW-Team FP Upper Columbia Escapement - General/",
+                              "UC_Sthd/inputs/Bio Data/",
+                              "Sex and Origin PRD-Brood Comparison Data/",
+                              "2011-2022_Wenatchee_STHD_Eastbank-Priest_Sex_Origin.xlsx"),
+                       "Master Comparisions",
                        skip = 1) %>%
               clean_names() %>%
-              select(brood_year:mark_11) %>%
-              mutate(across(c(starts_with("sex"),
-                              starts_with("origin"),
-                              starts_with("mark")),
-                            ~ if_else(. == "NA",
-                                      NA_character_,
-                                      .))) %>%
-              mutate(across(ends_with("year"),
-                            as.integer)) %>%
-              pivot_longer(cols = c(starts_with("sex"),
-                                    starts_with("origin"),
-                                    starts_with("mark"))) %>%
-              mutate(category = str_remove(name, "_[:digit:]+$"),
-                     col_num = str_extract(name, "[:digit:]+"),
-                     across(col_num,
-                            as.integer),
-                     location = if_else(between(col_num, 3, 5),
+              select(pit_tag:final_origin_prd,
+                     -collected) %>%
+              rename(brood_year = spawn_year) %>%
+              pivot_longer(cols = c(contains("sex"),
+                                    contains("origin"))) %>%
+              mutate(category = str_remove(name, "^final_"),
+                     category = str_split(category, "_", simplify = T)[,1],
+                     location = if_else(str_detect(name, "prd$"),
                                         "Priest",
-                                        if_else(between(col_num, 6, 8),
-                                                "Tum_Dry",
-                                                "Brdstk"))) %>%
-              select(-name, -col_num) %>%
+                                        if_else(str_detect(name, "brd$"),
+                                                "Brdstk",
+                                                NA_character_))) %>%
+              select(-name) %>%
               distinct() %>%
               pivot_wider(names_from = location,
                           values_from = value) %>%
-              # focus on broodstock collection, ignore Tumwater/Dryden calls
-              select(-Tum_Dry) %>%
               filter(!is.na(Brdstk)) %>%
               rename(Truth = Brdstk,
-                     pit_tag_number  = tag_code) %>%
+                     pit_tag_number  = pit_tag) %>%
               mutate(run_year = brood_year - 1,
                      qa_loc = "Wenatchee Broodstock")) %>%
-  mutate(across(c(Priest,
-                  Truth),
-                recode,
-                "F" = "Female",
-                "M" = "Male"),
-         across(c(Priest,
-                  Truth),
-                recode,
-                "H" = "Hatchery",
-                "W" = "Wild")) %>%
   mutate(agree = if_else(Priest == Truth,
                          T, F))
+
 
 sex_err_rate <- pra_call_comp %>%
   filter(category == "sex") %>%
@@ -449,6 +434,7 @@ usethis::use_data(sex_err_rate,
 #   unnest(binom_ci) %>%
 #   clean_names() %>%
 #   rename(perc_false = est)
+
 
 #---------------------------
 # make one plot of sex error rates

@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Wenatchee
 # Created: 12/9/2022
-# Last Modified: 1/18/2023
+# Last Modified: 1/19/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -21,6 +21,8 @@ library(here)
 data("thlwg_summ")
 # use consistent definition of reach length
 data("rch_lngth")
+# for adjusting fish/redd due to error rate in sex calls at Priest
+data("sex_err_rate")
 
 # what year are we prepping?
 # yr = 2014
@@ -392,8 +394,7 @@ for(yr in c(2014:2022)) {
            phos_se = sqrt((phos * (1 - phos)) / (n_origin)))
 
   # adjust fish / redd for years when Priest sex calls are questionable
-  if(yr %in% c(2022)) {
-    data("sex_err_rate")
+  # if(yr %in% c(2022)) {
 
     adj_fpr <- fpr_df %>%
       select(Location,
@@ -482,7 +483,7 @@ for(yr in c(2014:2022)) {
     fpr_df <- adj_fpr
 
     rm(adj_fpr)
-  }
+  # }
 
 
 
