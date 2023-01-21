@@ -18,6 +18,10 @@ library(here)
 
 
 #-----------------------------------------------------------------
+# replace MeanThalwegCV with values calculated from ALL measurements (across years)
+data("thlwg_summ")
+# use consistent definition of reach length
+data("rch_lngth")
 # for adjusting fish/redd due to error rate in sex calls at Priest
 data("sex_err_rate")
 
@@ -43,18 +47,18 @@ for(yr in c(2021:2022)) {
                                file_nm),
                           sheet = 1) %>%
       clean_names(case = "upper_camel") %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             Surveyors,
+             ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (ReachLength / 1000))
+      mutate(across(Reach,
+                    as.factor))
 
     # any redds below PIT tag arrays?
     redds_below_arrays = NULL
@@ -69,20 +73,18 @@ for(yr in c(2021:2022)) {
                                file_nm),
                           sheet = "Census 2022") %>%
       clean_names(case = "upper_camel") %>%
-      filter(!is.na(SurveyDate)) %>%
-      select(-any_of("Sequence")) %>%
-      rename(ExpSpTotal = ExpTotal,
-             MeanThalwegCV = MeanThalwegCv,
+      select(River,
+             Reach,
+             Index,
+             SurveyType,
+             SurveyDate,
+             NewRedds,
+             VisibleRedds,
+             Surveyors,
+             ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
-      mutate_at(vars(River, Reach, Index, SurveyType),
-                list(as.factor)) %>%
-      mutate_at(vars(NewRedds, MeanEffortHrs, MeanThalwegCV),
-                list(as.numeric)) %>%
-      mutate_at(vars(SurveyDate),
-                list(ymd)) %>%
-      mutate(Day = yday(SurveyDate),
-             ExpSpTotal_log = log(ExpSpTotal + 1),
-             NaiveDensity_km = VisibleRedds / (ReachLength / 1000))
+      mutate(across(Reach,
+                    as.factor))
 
     # any redds below PIT tag arrays?
     redds_below_arrays = read_excel(here('analysis/data/raw_data',
@@ -107,19 +109,24 @@ for(yr in c(2021:2022)) {
 
   #-----------------------------------------------------------------
   # manipulate some of the data
+  # add some of the covariates that are constant year-to-year
 
-  # # replace MeanThalwegCV with values calculated from ALL measurements (across years)
-  # data("thlwg_summ")
-  # redd_org %<>%
-  #   rename(thlwg_org = MeanThalwegCV) %>%
-  #   left_join(thlwg_summ %>%
-  #               select(Reach, MeanThalwegCV)) %>%
-  #   mutate(MeanThalwegCV = if_else(is.na(MeanThalwegCV),
-  #                                  thlwg_org,
-  #                                  MeanThalwegCV)) %>%
-  #   select(-thlwg_org) %>%
-  #   mutate(Reach = factor(Reach,
-  #                         levels = levels(redd_org$Reach)))
+  redd_org %<>%
+    left_join(rch_lngth %>%
+                clean_names(case = "upper_camel") %>%
+                select(River,
+                       Reach,
+                       Index,
+                       LengthKm),
+              by = c("River", "Reach", "Index")) %>%
+    left_join(thlwg_summ %>%
+                mutate(Index = "Y") %>%
+                select(Reach,
+                       Index,
+                       MeanThalwegCV),
+              by = c("Reach", "Index")) %>%
+    mutate(ExpSpTotal_log = log(ExpSpTotal + 1),
+           NaiveDensity_km = VisibleRedds / LengthKm)
 
   # add a location
   redd_org %<>%
