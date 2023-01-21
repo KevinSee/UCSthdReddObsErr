@@ -84,7 +84,8 @@ for(yr in c(2021:2022)) {
              ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
       mutate(across(Reach,
-                    as.factor))
+                    as.factor)) %>%
+      filter(!is.na(SurveyDate))
 
     # any redds below PIT tag arrays?
     redds_below_arrays = read_excel(here('analysis/data/raw_data',
@@ -249,15 +250,15 @@ for(yr in c(2021:2022)) {
                     "^n_"),
              across(sex,
                     str_to_title)) %>%
+      mutate(across(sex,
+                    recode,
+                    "Male" = "M",
+                    "Female" = "F")) %>%
       left_join(sex_err_rate %>%
                   filter(brood_year == yr) %>%
                   mutate(perc_se = sqrt((perc_false * (1 - perc_false)) / n_tags)) %>%
                   select(sex,
                          starts_with("perc_"))) %>%
-      mutate(across(sex,
-                    recode,
-                    "Male" = "M",
-                    "Female" = "F")) %>%
       pivot_wider(names_from = sex,
                   values_from = c(n_fish,
                                   perc_false,
