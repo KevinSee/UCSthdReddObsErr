@@ -1,0 +1,12 @@
+River,Reach,Reach Description,Index,Length (km),Comment
+Methow,MRW1,Lower Burma Br. To Pateros bridge,No,15.47,
+Methow,MRW2,Upper Burma Br. To Lower Burma br.,Yes,8.09,
+Methow,MRW3,WDFW access (old PF3) to Upper Burma Br.,No,17.6,
+Methow,MRW4,Carlton Br. To WDFW access (old PF3),Yes,4.38,
+Methow,MRW5,Braids to Carlton Br.,No,10.69,
+Methow,MRW6,Halderman Hole to Braids,Yes,7.62,
+Methow,MRW7,Red Barn to Halderman Hole,No,19.98,
+Methow,MRW8,MRW PIT array to Red Barn,Yes,3.69,
+Methow,MH1,Entire length of Methow Hatchery outfall,Yes,0.4,
+Methow,WN1,Entire length of Winthrop Hatchery outfall,Yes,0.4,SCP antenna is at ~ 0.18 rkm upstream from bottom end of this reach
+Twisp,T1,Lower Poorman Br. to confluence,Yes,2.9,TWR antenna is at ~1.84 rkm upstream of bottom end of this reach

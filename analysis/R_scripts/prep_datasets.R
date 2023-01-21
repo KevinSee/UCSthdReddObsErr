@@ -188,8 +188,28 @@ thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
                                  MeanThalwegCV[Reach =="W5"],
                                  MeanThalwegCV)) %>%
   ungroup() %>%
-  mutate(Reach = fct_relevel(Reach, 'W10', after = Inf)) %>%
-  arrange(Reach)
+  mutate(across(Reach,
+                fct_relevel,
+                'W10',
+                after = Inf),
+         across(Reach,
+                fct_expand,
+                paste0("MRW", 1:8))) %>%
+  arrange(Reach) %>%
+  add_column(River = "Wenatchee",
+             .before = 1) %>%
+  bind_rows(read_excel(here('analysis/data/raw_data',
+                            "2021 Methow Steelhead data for model.xlsx"),
+                       sheet = 1) %>%
+              select(Reach,
+                     MeanThalwegCV) %>%
+              distinct() %>%
+              arrange(Reach) %>%
+              mutate(across(Reach,
+                            as_factor)) %>%
+              add_column(River = "Methow",
+                         .before = 1))
+
 
 #-----------------------------------------------------------------
 # save for use in package
@@ -254,8 +274,30 @@ rch_lngth <- rch_lngth_org %>%
                         "index" = "Y",
                         "non_index" = "N")) %>%
   relocate(index,
-           .after = "type")
-
+           .after = "type") %>%
+  # add reaches in the Methow
+  bind_rows(read_csv(here("analysis/data/raw_data",
+                          "Methowreachlengths.csv")) %>%
+              clean_names() %>%
+              # shorten a couple reaches so they only include sections below a PIT tag array
+              mutate(length_km = if_else(reach == "WN1",
+                                         0.18,
+                                         if_else(reach == "T1",
+                                                 1.84,
+                                                 length_km))) %>%
+              rename(reach_descp = reach_description) %>%
+              mutate(across(index,
+                            recode,
+                            "Yes" = "Y",
+                            "No" = "N"),
+                     type = recode(index,
+                                   "Yes" = "index",
+                                   "No" = "non_index"),
+                     river = if_else(reach == "MH1",
+                                     "Methow Fish Hatchery",
+                                     if_else(reach == "WN1",
+                                             "Spring Creek",
+                                             river))))
 
 #-----------------------------------------------------------------
 # save for use in package
