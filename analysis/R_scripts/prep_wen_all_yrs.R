@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: Prep steelhead redd data from the Wenatchee
 # Created: 12/9/2022
-# Last Modified: 1/19/2023
+# Last Modified: 1/20/2023
 # Notes:
 
 #-----------------------------------------------------------------
@@ -52,6 +52,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = MeanTotalExperience,
              MeanDischarge = DischargeCfs) %>%
       mutate(across(SurveyType,
@@ -73,6 +74,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = MeanTotalExperience,
              MeanDischarge = Discharge) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
@@ -92,6 +94,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = MeanTotalExperience,
              MeanDischarge = Discharge) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
@@ -110,6 +113,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = ExpTotal,
              MeanDischarge) %>%
       mutate(across(SurveyDate,
@@ -131,6 +135,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = ExpTotal,
              MeanDischarge) %>%
       mutate(across(SurveyDate,
@@ -153,6 +158,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = ExpTotal,
              MeanDischarge) %>%
       mutate(across(NewRedds,
@@ -176,6 +182,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
@@ -245,6 +252,7 @@ for(yr in c(2014:2022)) {
              SurveyDate,
              NewRedds,
              VisibleRedds,
+             Surveyors,
              ExpSpTotal = ExpTotal,
              MeanDischarge = MeanDailyDiscahrge) %>%
       mutate(Reach = fct_relevel(Reach, 'W10', after = Inf))
