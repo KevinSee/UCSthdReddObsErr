@@ -158,7 +158,10 @@ save_list <- list("Reach Length" = rch_lngth %>%
                     arrange(River, Reach),
                   "Redd Surveys" = wen_redds_df,
                   "Discharge" = wen_discharge,
-                  "Discharge Gages" = wen_discharge_sites) %>%
+                  "Discharge Gages" = wen_discharge_sites,
+                  "Experience" = tibble(spawn_year = NA,
+                                        surveyor = NA,
+                                        experience = NA)) %>%
   map(clean_names,
       case = "title")
 
@@ -168,10 +171,6 @@ write_xlsx(save_list,
                         "Redd Data",
                         "Wenatchee_Redd_Surveys.xlsx",
                         sep = "/"))
-
-
-write_csv(save_list$`Thalweg CV`,
-          "O:/Desktop/Wen_Thlwg_CV.csv")
 
 #----------------------------------------
 # Methow
