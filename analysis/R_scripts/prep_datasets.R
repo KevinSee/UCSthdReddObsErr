@@ -164,58 +164,6 @@ removal_df %<>%
 usethis::use_data(removal_df,
                   overwrite = T)
 
-
-#-----------------------------------------------------------------
-# mean thalweg CV, using all measurements across years
-thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
-                        skip = 1) %>%
-  rename(Year = `...1`) %>%
-  mutate(across(Year,
-                as.integer)) %>%
-  filter(!is.na(Year)) %>%
-  mutate(across(-Year,
-                as.numeric)) %>%
-  pivot_longer(W1:W10,
-               names_to = "Reach",
-               values_to = "CV") %>%
-  group_by(Reach) %>%
-  summarise(n_yrs = n_distinct(Year[!is.na(CV)]),
-            n_meas = sum(!is.na(CV)),
-            MeanThalwegCV = mean(CV, na.rm = T)) %>%
-  mutate(across(MeanThalwegCV,
-                ~ . * 100)) %>%
-  mutate(MeanThalwegCV = if_else(Reach == 'W4',
-                                 MeanThalwegCV[Reach =="W5"],
-                                 MeanThalwegCV)) %>%
-  ungroup() %>%
-  mutate(across(Reach,
-                fct_relevel,
-                'W10',
-                after = Inf),
-         across(Reach,
-                fct_expand,
-                paste0("MRW", 1:8))) %>%
-  arrange(Reach) %>%
-  add_column(River = "Wenatchee",
-             .before = 1) %>%
-  bind_rows(read_excel(here('analysis/data/raw_data',
-                            "2021 Methow Steelhead data for model.xlsx"),
-                       sheet = 1) %>%
-              select(Reach,
-                     MeanThalwegCV) %>%
-              distinct() %>%
-              arrange(Reach) %>%
-              mutate(across(Reach,
-                            as_factor)) %>%
-              add_column(River = "Methow",
-                         .before = 1))
-
-
-#-----------------------------------------------------------------
-# save for use in package
-usethis::use_data(thlwg_summ,
-                  overwrite = T)
-
 #-----------------------------------------------------------------
 # reach length
 rch_lngth_org <- read_excel(here("analysis/data/raw_data",
@@ -302,6 +250,143 @@ rch_lngth <- rch_lngth_org %>%
 #-----------------------------------------------------------------
 # save for use in package
 usethis::use_data(rch_lngth,
+                  overwrite = T)
+
+
+#-----------------------------------------------------------------
+# mean thalweg CV, using all measurements across years
+# thlwg_summ = read_excel('analysis/data/raw_data/Master_STHD Thalwegs.xlsx',
+#                         skip = 1) %>%
+#   rename(Year = `...1`) %>%
+#   mutate(across(Year,
+#                 as.integer)) %>%
+#   filter(!is.na(Year)) %>%
+#   mutate(across(-Year,
+#                 as.numeric)) %>%
+#   pivot_longer(W1:W10,
+#                names_to = "Reach",
+#                values_to = "CV") %>%
+#   group_by(Reach) %>%
+#   summarise(n_yrs = n_distinct(Year[!is.na(CV)]),
+#             n_meas = sum(!is.na(CV)),
+#             MeanThalwegCV = mean(CV, na.rm = T)) %>%
+#   mutate(across(MeanThalwegCV,
+#                 ~ . * 100)) %>%
+#   mutate(MeanThalwegCV = if_else(Reach == 'W4',
+#                                  MeanThalwegCV[Reach =="W5"],
+#                                  MeanThalwegCV)) %>%
+#   ungroup() %>%
+#   mutate(across(Reach,
+#                 fct_relevel,
+#                 'W10',
+#                 after = Inf),
+#          across(Reach,
+#                 fct_expand,
+#                 paste0("MRW", 1:8))) %>%
+#   arrange(Reach) %>%
+#   add_column(River = "Wenatchee",
+#              .before = 1) %>%
+#   bind_rows(read_excel(here('analysis/data/raw_data',
+#                             "2021 Methow Steelhead data for model.xlsx"),
+#                        sheet = 1) %>%
+#               select(Reach,
+#                      MeanThalwegCV) %>%
+#               distinct() %>%
+#               arrange(Reach) %>%
+#               mutate(across(Reach,
+#                             as_factor)) %>%
+#               add_column(River = "Methow",
+#                          .before = 1))
+
+
+data_file = here("analysis/data/raw_data",
+                 "Final_Historical covariates Wenatchee Steelhead 5-23-22.xlsx")
+thlwg_df <- read_excel(data_file,
+                       "Final Pooled CV Thalwegs",
+                       range = cell_rows(c(3, 7))) %>%
+  rename(metric = `...1`) %>%
+  select(-2) %>%
+  mutate(across(-1,
+                as.character)) %>%
+  pivot_longer(-1,
+               names_to = "reach",
+               values_to = "value") %>%
+  mutate(across(metric,
+                recode,
+                "Distance Requirement Met (> 50% Reach Distance)" = "dist_req_met",
+                "Pooled Non-overlapping  Redd Thalweg CVs" = "MeanThalwegCV",
+                "Sample Size" = "n_samp",
+                "Notes" = "notes")) %>%
+  pivot_wider(names_from = metric,
+              values_from = value) %>%
+  mutate(across(c(MeanThalwegCV,
+                  n_samp),
+                as.numeric)) %>%
+  mutate(across(reach,
+                as_factor)) %>%
+  mutate(river = if_else(str_detect(reach, "^W"),
+                         "Wenatchee",
+                         if_else(str_detect(reach, "^N"),
+                                 "Nason",
+                                 if_else(str_detect(reach, "^C"),
+                                         "Chiwawa",
+                                         if_else(str_detect(reach, "^P"),
+                                                 "Peshastin",
+                                                 if_else(str_detect(reach, "^I"),
+                                                         "Icicle",
+                                                         NA_character_)))))) %>%
+  relocate(river) %>%
+  # for 2010, use the mean thalweg CV from N3 for N2 (since N2 is unavailable)
+  mutate(across(MeanThalwegCV,
+                ~ if_else(reach == "N2",
+                          MeanThalwegCV[reach == "N3"],
+                          .)),
+         across(notes,
+                ~ if_else(reach == "N2",
+                          "Using thalweg CV from N3 because N2 was only sampled in one year for observer error",
+                          .))) %>%
+  select(river, reach,
+         n_samp, dist_req_met,
+         MeanThalwegCV,
+         everything())
+
+# use reach length to use as weighted average for P2 - P4
+thlwg_df %<>%
+  bind_rows(thlwg_df %>%
+              filter(str_detect(reach, "P"),
+                     reach != "P1") %>%
+              select(-notes) %>%
+              left_join(rch_lngth_org %>%
+                          filter(type == "index")) %>%
+              group_by(river) %>%
+              summarize(across(MeanThalwegCV,
+                               weighted.mean,
+                               w = length_km),
+                        across(n_samp,
+                               sum),
+                        .groups = "drop") %>%
+              mutate(reach = "P3 (P2)",
+                     notes = "Weighted average of P2, P3, P4; weighted by length."))
+
+thlwg_summ <- thlwg_df %>%
+  rename(River = river,
+         Reach = reach) %>%
+  bind_rows(read_excel(here('analysis/data/raw_data',
+                            "2021 Methow Steelhead data for model.xlsx"),
+                       sheet = 1) %>%
+              select(Reach,
+                     MeanThalwegCV) %>%
+              distinct() %>%
+              arrange(Reach) %>%
+              mutate(across(Reach,
+                            as_factor)) %>%
+              add_column(River = "Methow",
+                         .before = 1))
+
+
+#-----------------------------------------------------------------
+# save for use in package
+usethis::use_data(thlwg_summ,
                   overwrite = T)
 
 #-----------------------------------------------------------------
