@@ -156,7 +156,7 @@ for(yr in c(2021:2022)) {
             dam_cnt_name,
             paste0("UC_Sthd_DABOM_", yr, ".rda")))
 
-  # pull out Wenatchee tags
+  # pull out Methow tags
   met_tags = tag_summ %>%
     filter(str_detect(path, "LMR")) %>%
     mutate(Area = if_else(str_detect(spawn_node, "^MRC") |
