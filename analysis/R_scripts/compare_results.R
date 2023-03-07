@@ -151,3 +151,13 @@ rch_est_old <- old_est |>
                         function(x) x[["rch_est"]])) |>
   select(-results_list) |>
   unnest(redd_est)
+
+rch_est_old |>
+  filter(redd_est < tot_feat) |>
+  select(-population,
+         -river,
+         -gauc_list,
+         -data) |>
+  relocate(redd_est,
+           redd_se,
+           .after = "tot_feat")
