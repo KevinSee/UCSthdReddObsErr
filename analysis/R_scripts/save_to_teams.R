@@ -1,7 +1,7 @@
 # Author: Kevin See
 # Purpose: save all redd survey data to Teams site
 # Created: 1/27/23
-# Last Modified: 2/3/23
+# Last Modified: 3/9/23
 # Notes: save 2014 - 2022 data from Wenatchee and Methow to Teams site
 
 #-----------------------------------------------------------------
@@ -139,7 +139,8 @@ wen_redds_df <- all_wen_df %>%
                           .))) %>%
   select(spawn_year:surveyors,
          surveyor1, surveyor2,
-         exp_sp_total)
+         exp_sp_total) %>%
+  distinct()
 
 save_list <- list("Reach Length" = rch_lngth %>%
                     filter(river %in% c("Chiwawa",
@@ -157,11 +158,8 @@ save_list <- list("Reach Length" = rch_lngth %>%
                                         "Wenatchee")) %>%
                     arrange(River, Reach),
                   "Redd Surveys" = wen_redds_df,
-                  "Discharge" = wen_discharge,
                   "Discharge Gages" = wen_discharge_sites,
-                  "Experience" = tibble(spawn_year = NA,
-                                        surveyor = NA,
-                                        experience = NA)) %>%
+                  "Discharge" = wen_discharge) %>%
   map(clean_names,
       case = "title")
 
