@@ -101,6 +101,20 @@ prob_rchs |>
          mean_discharge,
          net_error)
 
+redd_df_new |>
+  filter(is.na(exceed_ceiling))
+
+redd_df_new |>
+  group_by(spawn_year,
+           reach,
+           index) |>
+  summarize(across(net_error,
+                   mean),
+            across(exceed_ceiling,
+                   sum),
+            .groups = "drop") |>
+  tabyl(spawn_year, exceed_ceiling)
+
 #-----------------------------------------------------------------
 # older results
 
