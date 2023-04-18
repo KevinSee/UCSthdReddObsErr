@@ -1,0 +1,2092 @@
+---
+title: "Estimates of Wenatchee Steelhead Spawners"
+subtitle: "Spawn Years 2004-2022"
+author:
+  - Kevin See:
+      email: Kevin.See@dfw.wa.gov
+      institute: [wdfw]
+      correspondence: true
+institute:
+  - wdfw: Washington Department of Fish & Wildlife
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+always_allow_html: true
+output: 
+    wdfwTemplates::wdfw_html_format2:
+      fig_caption: yes
+      fig_height: 6
+      fig_width: 6
+      toc: yes
+      toc_depth: 3
+      toc_float:
+        collapsed: yes
+        smooth_scroll: yes
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_wdfw.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/pagebreak.lua
+      extra_dependencies: ["flafter"]
+    bookdown::word_document2:
+      fig_caption: yes
+      fig_height: 4
+      fig_width: 6
+      toc: yes
+      reference_docx: "../templates/ReportTemplate.docx" # Insert path for the DOCX file
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
+bibliography:
+- packages.bib
+- references.bib
+csl: "../templates/american-fisheries-society.csl" # Insert path for the bib-style
+---
+
+```{r setup, echo = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  warning = FALSE,
+  message = FALSE,
+  echo = FALSE,
+  comment = "#>",
+  fig.path = "../figures/",
+  dpi = 300
+)
+```
+
+```{r packages}
+# load these packages
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(janitor)
+library(magrittr)
+library(msm)
+library(sroem)
+library(PITcleanr)
+library(here)
+library(kableExtra)
+
+# plotting theme
+theme_set(theme_bw())
+
+# knitr options
+options(knitr.kable.NA = '-')
+
+# when knitting to Word, use this
+# what kind of document is being created?
+doc.type <- knitr::opts_knit$get('rmarkdown.pandoc.to')
+
+if(doc.type == 'docx') {
+  options(knitr.table.format = "pandoc")
+}
+
+```
+
+
+```{r read-methods}
+# data_file = here("analysis/data/raw_data",
+#                  "Final_Historical covariates Wenatchee Steelhead 5-23-22.xlsx")
+
+data_file = paste("T:DFW-Team FP Upper Columbia Escapement - General",
+                  "UC_Sthd",
+                  "Historical Data 1987-2013",
+                  "Updated_Historical covariates Wenatchee Steelhead 3-24-23_MH.xlsx",
+                  sep = "/")
+
+# excel_sheets(data_file)
+
+# what method should be used for each reach / year?
+method_df <- read_excel(data_file,
+                        1) %>%
+  # W9 was listed twice, and one row is incorrect
+  filter(!(Reach == "W9" & `2012` == "Redd")) %>%
+  pivot_longer(-c(1:2),
+               names_to = "year",
+               values_to = "method") %>%
+  mutate(across(year,
+                as.numeric)) %>%
+  clean_names() %>%
+  mutate(across(reach,
+                as_factor)) %>%
+  distinct() %>%
+  mutate(across(river,
+                ~ recode(.,
+                         "Little Wen" = "Little Wenatchee",
+                         "White" = "White River")),
+         across(river,
+                ~ (str_remove(.,
+                              " Ck")))) %>%
+  arrange(river, reach, year)
+
+# for 2004-2010, P3 and P4 are lumped in with P2
+# but we'll call P4 the non-index stretch, so let's keep P4
+method_df %<>%
+  mutate(across(
+    reach,
+    ~ fct_recode(.,
+                 "P3 (P2)" = "P3",
+                 NULL = "P2")
+    
+  )) %>%
+  filter(!is.na(reach))
+
+# add a couple reaches not included in the original file
+method_df %<>%
+  mutate(across(reach,
+                fct_expand,
+                "H2", "L2")) %>%
+  bind_rows(tibble(river = c("Little Wenatchee",
+                             "White River"),
+                   reach = factor(c("L2",
+                                    "H2"))) %>%
+              crossing(year = 2004:2013) %>%
+              mutate(method = if_else(year >= 2011, 
+                                      "PIT",
+                                      "Redd"))) %>%
+  mutate(across(reach,
+                fct_relevel,
+                "H2",
+                after = 22),
+         across(reach,
+                fct_relevel,
+                "L2",
+                after = 21)) %>%
+  arrange(river, reach)
+
+# adjust one method
+method_df %<>%
+  mutate(method = if_else(year >= 2011 & method == "Expansion",
+                          "PIT",
+                          method)) %>%
+  mutate(method = if_else(year == 2011 & reach == "H3",
+                          "PIT",
+                          method))
+
+# add Mission and Chumstick
+method_df %<>%
+  bind_rows(
+    crossing(river = c("Mission",
+                       "Chumstick"),
+             year = unique(method_df$year)) |> 
+      mutate(reach = NA_character_,
+             method = if_else(year >= 2011, "PIT", "Expansion"),
+             method = if_else(year == 2011 & river == "Mission",
+                              "Expansion",
+                              method))
+  ) %>% 
+  arrange(river, reach, year)
+```
+
+```{r redd-data}
+# non-index reaches
+non_index_rch <- read_excel(data_file,
+                            "Non-index Reaches") %>%
+  clean_names() %>%
+  rename(river = stream) %>%
+  select(-x6,
+         -notes) %>%
+  mutate(across(non_index_reach,
+                recode,
+                "P2" = "P4"),
+         across(index_reach,
+                recode,
+                "P2" = "P3 (P2)")) %>%
+  mutate(across(river,
+                ~ recode(.,
+                         "Little Wen" = "Little Wenatchee",
+                         "White" = "White River")),
+         across(river,
+                ~ str_remove(.,
+                             " Ck"))) %>%
+  mutate(location = if_else(!grepl('W[[:digit:]]', non_index_reach),
+                            river,
+                            if_else(non_index_reach %in% paste0('W', 1:7),
+                                    'Below_TUM',
+                                    'Above_TUM'))) %>%
+  relocate(location,
+           .after = "river") %>%
+  arrange(year,
+          river,
+          location,
+          non_index_reach,
+          date) %>%
+  left_join(method_df %>%
+              rename(non_index_reach = reach)) %>%
+  filter(method != "PIT")
+
+# index reaches
+index_rch <- read_excel(data_file,
+                        "Index Reaches") %>%
+  clean_names() %>%
+  select(-notes) %>%
+  rename(river = stream) %>%
+  mutate(across(river,
+                ~ recode(.,
+                         "Little Wen" = "Little Wenatchee",
+                         "White" = "White River")),
+         across(river,
+                ~ str_remove(.,
+                             " Ck"))) %>%
+  mutate(location = if_else(!grepl('W[[:digit:]]', index_reach),
+                            river,
+                            if_else(index_reach %in% paste0('W', 1:7),
+                                    'Below_TUM',
+                                    'Above_TUM'))) %>%
+  relocate(location,
+           .after = "river") %>%
+  arrange(year,
+          river,
+          location,
+          index_reach,
+          date)
+
+# no-error reaches
+no_err_rch <- read_excel(data_file,
+                         "No Error Tribs") %>%
+  clean_names() %>%
+  select(-notes) %>%
+  mutate(across(major,
+                ~ recode(.,
+                         "Little Wen" = "Little Wenatchee",
+                         "White" = "White River")),
+         across(major,
+                ~ str_remove(.,
+                             " Ck"))) %>%
+  mutate(location = if_else(major == "Wenatchee",
+                            "Above_TUM",
+                            major)) %>%
+  relocate(location,
+           .after = "major")
+
+# put a couple of index reaches into the no-error reaches
+no_err_rch %<>%
+  bind_rows(index_rch %>%
+              filter(index_reach %in% c("H2",
+                                        "H3",
+                                        "L2",
+                                        "L3")) %>%
+              group_by(year,
+                       river,
+                       location,
+                       index_reach) %>%
+              summarize(total = sum(redds,
+                                    na.rm = T),
+                        .groups = "drop") %>%
+              rename(major = river,
+                     minor = index_reach)) %>%
+  arrange(year,
+          major,
+          minor)
+
+index_rch %<>%
+  filter(!index_reach %in% c("H2",
+                             "H3",
+                             "L2",
+                             "L3"))
+
+# # which non-index reaches don't have an index reach associated with them?
+# non_index_rch %>%
+#   filter(method == "Redd") %>%
+#   anti_join(index_redd_results %>%
+#                select(year, river, index_reach) %>%
+#               bind_rows(census_redds %>%
+#                           select(-redds)))
+
+# switch a couple associated index reaches to the adjacent one
+non_index_rch %<>%
+  mutate(index_reach = if_else(index_reach == "W6" &
+                                 year %in% c(2004, 2005),
+                               "W8",
+                               index_reach))
+
+
+
+# combine all reaches, and sum total observed redds in each reach, each year
+all_rch <- index_rch %>%
+  # mutate(across(index_reach,
+  #               recode,
+  #               "P3 (P2)" = "P2")) %>%
+  group_by(year, river,
+           location,
+           reach = index_reach) %>%
+  summarize(across(redds,
+                   sum,
+                   na.rm = T),
+            .groups = "drop") %>%
+  mutate(type = "I") %>%
+  bind_rows(non_index_rch %>%
+              select(year, river,
+                     location,
+                     reach = non_index_reach,
+                     redds) %>%
+              mutate(type = "NI")) %>%
+  bind_rows(no_err_rch %>%
+              select(year,
+                     river = major,
+                     location,
+                     reach = minor,
+                     redds = total) %>%
+              mutate(type = "NE"))
+
+# # any reaches without a method?
+# all_rch %>%
+#   filter(str_detect(reach, "[:digit:]")) %>%
+#   full_join(method_df) %>%
+#   filter(is.na(method))
+
+
+```
+
+# Goal
+
+To compile all the steelhead redd data collected in the Wenatchee between 2004 and 2013, apply PIT tag based escapement estimates where appropriate and the single observer error model where appropriate to estimate the true number of steelhead redds and spawners in the Wenatchee each year. We've also compiled all of our work from 2014 - 2022, using the two-observer redd error model, to generate a complete time-series of our best estimates of hatchery and natural origin steelhead in the Wenatchee. 
+
+# Methods
+
+Various methods were applied depending on the year and reach. For most reaches and years, redd counts were adjusted based on the one-observer redd count error model developed in @Murdoch2018. Some reaches were part of that study, and the census observer counts from that study were assumed to be the true number of redds. For the later years, within the tributaries, we applied the PIT tag-based escapement estimates described in @Waterhouse2020. For a few tributaries with no redd surveys, an expansion factor was developed based on the proportion of fish estimated to spawn in those tributaries compared to the overall number of spawners in the Wenatchee (Table \@ref(tab:method-tab)).
+
+```{r method-tab}
+method_df %>%
+  filter(!reach %in% c("P2", "P3")) %>%
+  clean_names("title") %>%
+  pivot_wider(names_from = Year,
+              values_from = Method) %>%
+  mutate(
+    across(c(`2011`:`2013`),
+           ~ replace_na(., "PIT"))
+  ) |>
+  kable(booktabs = T,
+        linesep = "",
+        caption = "Methods employed to calculate spawners within each reach, each year.") %>%
+  kable_styling(latex_options = c("scale_down"))
+```
+
+## Redd Surveys
+
+Redd surveys were divided into three different types of reaches: index reaches, non-index reaches, and no-error reaches (Table @\ref(tab:method-tab)). For index reaches, we compiled the necessary covariates to run the one-observer redd net error model described in @Murdoch2018. Any reach designated to use redd data that contained no data for a particular year was assumed to have zero redds for that year. 
+
+```{r rch-type-tab}
+all_rch %>%
+  mutate(across(type,
+                ~ factor(.,
+                         levels = c("I",
+                                    "NI",
+                                    "NE"))),
+         across(type,
+                ~ recode(.,
+                         "I" = "Index",
+                         "NI" = "Non-Index",
+                         "NE" = "No Error"))) %>%
+  tabyl(type) %>%
+  adorn_pct_formatting() %>%
+  as_tibble() |> 
+  clean_names("title") |> 
+  rename(n = N) |> 
+  kable(booktabs = T,
+        linesep = "",
+        caption = "Number of reaches by type, and the percent of all reaches made up of that type.") %>%
+  kable_styling()
+```
+
+### Index Reaches
+
+To apply the redd observer error model to all index reaches, we needed to compile the necessary covariates for that model. These included depth, the mean CV of the thalweg, and the redd density (number of features visible per kilometer of stream). Depth was calculated from a relationship derived from flow gauges. This often resulted in the same depth being applied to all reaches within a particular stream (but not always). The mean CV of the thalweg was assumed to be constant through time. However, measurements for this metric had been conducted in the current P3 and P4 reaches, which make up the historic P3 (P2) reach, so the mean of the thalweg CVs across P3 and P4 was applied to P3 (P2).
+
+For the redd density (redds / km), first the reach length needed to be compiled. Within the Peshastin, stretches where no surveys were conducted were dropped, and the index areas of the current P3 and P4 were combined into the historic P3 (P2) reach, while the non-index areas of the current P3 and P4 were combined into the historic non-index P4. To calculate the number of visible redds, we needed to estimate this based on the number of new redds counted during each survey, as only new redds were recorded in older data. To do so, we calculated average redd life, by stream and reach group, and applied that redd life to each new redd observed. This allowed us to estimate how many redds were visible during any given survey. 
+
+```{r obs-err-covars}
+# reach length
+rch_lngth_org <- read_excel(data_file,
+                            "Reach Length") %>%
+  clean_names() %>%
+  rename(reach = reach_2,
+         reach_descp = reach_3) %>%
+  rename(length_km = adjusted_reach_lengths_km) %>%
+  pivot_longer(cols = c(index,
+                        non_index),
+               names_to = "type",
+               values_to = "type_descp") %>%
+  filter(!is.na(type_descp)) %>%
+  relocate(length_km,
+           .after = type_descp) %>%
+  mutate(across(reach,
+                as_factor),
+         across(reach,
+                fct_expand,
+                "P3 (P2)"),
+         across(reach,
+                fct_relevel,
+                "P3 (P2)",
+                after = 13))
+
+# make a few modifications
+rch_lngth <- rch_lngth_org %>%
+  filter(river != "Peshastin" |
+           reach == "P1") %>%
+  bind_rows(rch_lngth_org %>%
+              filter(str_detect(reach, "P"),
+                     reach != "P1",
+                     str_detect(type_descp,
+                                "No surveys",
+                                negate = T)) %>%
+              mutate(reach = if_else(type == "index",
+                                     "P3 (P2)",
+                                     as.character(reach)),
+                     across(reach,
+                            factor,
+                            levels = levels(rch_lngth_org$reach)),
+                     reach_descp = if_else(type == "index",
+                                           "Ingalls Ck. To Scott Ck.",
+                                           reach_descp)) %>%
+              group_by(river,
+                       reach,
+                       reach_descp,
+                       type) %>%
+              summarize(across(type_descp,
+                               paste,
+                               collapse = ", "),
+                        across(length_km,
+                               sum),
+                        .groups = "drop")) %>%
+  arrange(river, reach)
+
+
+# thalweg data
+thlwg_df <- read_excel(data_file,
+                       "Final Pooled CV Thalwegs",
+                       range = cell_rows(c(3, 7))) %>%
+  rename(metric = `...1`) %>%
+  select(-2) %>%
+  mutate(across(-1,
+                as.character)) %>%
+  pivot_longer(-1,
+               names_to = "reach",
+               values_to = "value") %>%
+  mutate(across(metric,
+                recode,
+                "Distance Requirement Met (> 50% Reach Distance)" = "dist_req_met",
+                "Pooled Non-overlapping  Redd Thalweg CVs" = "MeanThalwegCV",
+                "Sample Size" = "n_samp",
+                "Notes" = "notes")) %>%
+  pivot_wider(names_from = metric,
+              values_from = value) %>%
+  mutate(across(c(MeanThalwegCV,
+                  n_samp),
+                as.numeric)) %>%
+  mutate(across(reach,
+                as_factor)) %>%
+  left_join(method_df %>%
+              select(river, reach) %>%
+              distinct()) %>%
+  relocate(river) %>%
+  # for 2010, use the mean thalweg CV from N3 for N2 (since N2 is unavailable)
+  mutate(across(MeanThalwegCV,
+                ~ if_else(reach == "N2",
+                          MeanThalwegCV[reach == "N3"],
+                          .)),
+         across(notes,
+                ~ if_else(reach == "N2",
+                          "Using thalweg CV from N3 because N2 was only sampled in one year for observer error",
+                          .)))
+thlwg_df %<>%
+  mutate(across(reach,
+                fct_expand,
+                "P3 (P2)")) %>%
+  bind_rows(thlwg_df %>%
+              filter(reach %in% c("P3", "P4")) %>%
+              group_by(river) %>%
+              summarize(across(MeanThalwegCV,
+                               mean),
+                        across(n_samp,
+                               sum),
+                        across(notes,
+                               ~ paste(.[!is.na(.)],
+                                       collapse = ',')),
+                        .groups = "drop") %>%
+              mutate(reach = as.factor("P3 (P2)"),
+                     dist_req_met = "N") %>%
+              mutate(notes = paste(notes, "Average of P3 and P4."))) %>%
+  arrange(river, reach)
+
+# depth
+depth_df <- read_excel(data_file,
+                       "Water depth",
+                       range = "H2:AN24") %>%
+  select(reach = Reach,
+         `2004...24`:ncol(.)) %>%
+  rename_with(.fn  = function(x) str_sub(x, 1, 4),
+              .cols = -1) %>%
+  pivot_longer(-1,
+               names_to = "year",
+               values_to = "MeanDepth") %>%
+  filter(!is.na(reach)) %>%
+  mutate(across(year,
+                as.numeric)) %>%
+  mutate(reach = if_else(reach == "P3" & year %in% 2004:2010,
+                         "P3 (P2)",
+                         reach))
+
+```
+
+```{r redd-life}
+# data on redd life
+redd_life_df <- read_excel(data_file,
+                           "Redd life") %>%
+  clean_names() %>%
+  left_join(method_df %>%
+              select(river,
+                     reach) %>%
+              distinct(),
+            by = "reach") %>%
+  mutate(across(river,
+                ~ if_else(reach == "I2",
+                          "Icicle",
+                          .))) %>%
+  relocate(river) %>%
+  filter(!is.na(river)) %>%
+  mutate(across(c(reach,
+                  river),
+                as_factor),
+         across(reach,
+                fct_relevel,
+                "W10",
+                after = Inf))
+
+# summary of average redd life
+redd_life_summ <- redd_life_df %>%
+  mutate(rch_grp = river,
+         rch_grp = if_else(reach == "W10",
+                           "W10",
+                           if_else(reach %in% paste0("W", 6:9),
+                                   "W6-W9",
+                                   if_else(reach %in% paste0("W", 1:5),
+                                           "W1-W5",
+                                           as.character(rch_grp)))),
+         across(rch_grp,
+                as.factor),
+         across(rch_grp,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  mutate(across(rch_grp,
+                fct_collapse,
+                "W6-W10" = c("W6-W9",
+                             "W10"))) %>%
+  group_by(rch_grp) %>%
+  summarize(across(redd_life,
+                   list(mean = mean,
+                        sd = sd)))
+```
+
+Redd life was collected in `r n_distinct(redd_life_df$river)` streams. Only redds which were observed to disappear were included in this dataset (i.e. known redd life). For the non-mainstem tributaries, we calculated the mean and standard deviation of redd life. For the mainstem Wenatchee, we initially divided it into three different reach groups based on geomorphology: reaches W1-W5, W6-W9 and W10. Figure \@ref(fig:rl-box-org) shows the distribution of redd life by reach and reach group. However, there was no discernible difference in redd life between W10 and W6-W9, so those groups were lumped together. Table \@ref(tab:rl-tab) shows the mean and standard deviation of redd life within each reach group.
+
+```{r rl-box-org, fig.cap = "Boxplots of observed redd life by reach, colored by initial reach grouping."}
+redd_life_df %>%
+  mutate(rch_grp = river,
+         rch_grp = if_else(reach == "W10",
+                           "W10",
+                           if_else(reach %in% paste0("W", 6:9),
+                                   "W6-W9",
+                                   if_else(reach %in% paste0("W", 1:5),
+                                           "W1-W5",
+                                           as.character(rch_grp)))),
+         across(rch_grp,
+                as.factor),
+         across(rch_grp,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  ggplot(aes(x = river,
+             y = redd_life,
+             fill = rch_grp)) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(x = "Reach",
+       y = "Redd Life",
+       fill = "Reach Group")
+```
+
+```{r rl-tab}
+redd_life_summ %>%
+  kable(booktabs = T,
+        linesep = "",
+        digits = 1,
+        col.names = c("Reach Group",
+                      "Mean",
+                      "SD"),
+        caption = "Redd life mean and standard deviation by reach group.") %>%
+  kable_styling()
+```
+
+```{r visible-redds}
+# these are the reaches we need to apply a redd-life estimate to
+# to estimate visible redds
+redd_life_needed <- index_rch %>%
+  # mutate(across(index_reach,
+  #               recode,
+  #               "P3 (P2)" = "P2")) %>%
+  left_join(method_df %>%
+              rename(index_reach = reach),
+            by = c("year", "river", "index_reach")) %>%
+  filter(year < 2009,
+         !is.na(redds),
+         is.na(visible_redds)) %>%
+  mutate(rch_grp = river,
+         rch_grp = if_else(index_reach == "W10",
+                           "W10",
+                           if_else(index_reach %in% paste0("W", 6:9),
+                                   "W6-W9",
+                                   if_else(index_reach %in% paste0("W", 1:5),
+                                           "W1-W5",
+                                           rch_grp))),
+         across(rch_grp,
+                as.factor),
+         across(rch_grp,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  mutate(across(rch_grp,
+                fct_collapse,
+                "W6-W10" = c("W6-W9",
+                             "W10"))) %>%
+  left_join(redd_life_summ,
+            by = "rch_grp") %>%
+  mutate(last_visible = date + days(round(redd_life_mean))) %>%
+  # fill in what redds were visible during each survey
+  group_by(year,
+           river,
+           index_reach) %>%
+  nest() %>%
+  ungroup() %>%
+  mutate(vis_data = map(data,
+                        .f = function(x) {
+                          vis_redds <- x %>%
+                            select(date, redds, last_visible) %>%
+                            rename(survey_date = date) %>%
+                            pivot_longer(c(survey_date,
+                                           last_visible),
+                                         names_to = "type",
+                                         values_to = "date") %>%
+                            mutate(across(redds,
+                                          ~if_else(type == "last_visible",
+                                                   . * -1,
+                                                   .))) %>%
+                            arrange(date) %>%
+                            mutate(visible_redds = cumsum(redds)) %>%
+                            filter(type == "survey_date") %>%
+                            pull(visible_redds)
+                          
+                          x %>%
+                            mutate(visible_redds = vis_redds) %>%
+                            return()
+                        })) %>%
+  unnest(vis_data) %>%
+  select(-data,
+         -rch_grp,
+         -starts_with("redd_life"),
+         -last_visible)
+
+# add visible redds based on redd-life to all index reaches
+index_rch %>%
+  left_join(method_df %>%
+              rename(index_reach = reach)) %>%
+  anti_join(redd_life_needed %>%
+              select(year:date)) %>%
+  # drop rows with NA for redds
+  filter(!is.na(redds)) %>%
+  bind_rows(redd_life_needed) %>%
+  arrange(year,
+          river,
+          index_reach,
+          date) -> index_rch
+```
+
+Once the redds visible for each survey were compiled or estimated, the other covariates for the one-observer error model were attached to the dataset, and the net error of each survey was predicted (with uncertainty). 
+
+```{r net-error}
+# pull out the redds for index reaches where method == "Redd"
+# add covariates and apply one observer redd error model
+index_redds <- index_rch |>
+  filter(method == "Redd") %>%
+  left_join(rch_lngth %>%
+              filter(type == "index" |
+                       reach == "N2") %>%
+              select(river,
+                     index_reach = reach,
+                     length_km),
+            by = c("river", "index_reach")) %>%
+  mutate(NaiveDensity_km = visible_redds / length_km) %>%
+  left_join(depth_df,
+            by = c("year",
+                   "index_reach" = "reach")) %>%
+  left_join(thlwg_df %>%
+              select(index_reach = reach,
+                     MeanThalwegCV),
+            by = "index_reach") %>%
+  clean_names() %>%
+  predict_neterr(num_obs = "one",
+                 err_floor = F)
+```
+
+We did a quick comparison of how the predicted net error of this historic data compared to the observed net error calculated within the @Murdoch2018 dataset (Figure \@ref(fig:ne-comp)). There were a few reaches with a net error below the range of values in @Murdoch2018.
+
+```{r ne-comp, fig.cap = "Boxplots of estimated net error, by river, compared with the net errors observed in the redd observer error model."}
+# get net error from the study
+data("one_obs_sthd")
+
+index_redds %>%
+  select(year, river,
+         net_error) %>%
+  mutate(type = "Predictive") %>%
+  bind_rows(one_obs_sthd %>%
+              select(year, 
+                     river = stream,
+                     net_error) %>%
+              mutate(river = "Model") %>%
+              mutate(type = "Model")) %>%
+  mutate(across(river,
+                fct_relevel,
+                "Model",
+                after = Inf)) %>%
+  ggplot(aes(x = river,
+             y = net_error,
+             fill = type)) +
+  geom_boxplot() +
+  geom_hline(yintercept = 0,
+             linetype = 3) +
+  scale_fill_brewer(palette = "Set1",
+                    name = "Data\nSource") +
+  theme(axis.text.x = element_text(angle = 45,
+                                   hjust = 1)) +
+  labs(x = "River",
+       y = "Net Error")
+```
+
+We also compared the covariates for this historic dataset against those observed in the @Murdoch2018 study. The coefficients of the one-observer net error model are shown in Table \@ref(tab:coef-tab). Figure \@ref(fig:coef-comp) shows how the historic covariates compare those observed in the model dataset.
+
+```{r coef-tab}
+print_mod_summ(species = "Steelhead",
+               num_obs = "one") |> 
+  clean_names("title") |> 
+  select(1:3) |>
+  mutate(across(
+    Term,
+    recode,
+    'mean_depth' = 'Mean Depth',
+    'mean_thalweg_cv' = 'Mean Thalweg CV',
+    'naive_density_km' = 'Obs. Redd Density'
+  )) |> 
+  arrange(desc(abs(Estimate))) %>%
+  kable(digits = 3,
+        booktabs = T,
+        linesep = "",
+        caption = "Net error one-observer model covariates and coefficients.") %>%
+  kable_styling(bootstrap_options = c("striped", 
+                                      "hover"),
+                latex_options = c("striped",
+                                  "hold_position"))
+```
+
+
+```{r coef-comp, fig.cap = "Boxplots showing distribution of covariates and estimated net error between the model data from Murdoch et al. (2018) in red and the predictive data used in this analysis in blue."}
+# how do covariates compare to range of model covariates?
+compare_covars(index_redds,
+               species = "Steelhead",
+               num_obs = "one") |> 
+  mutate(across(covariate,
+                recode,
+                'mean_depth' = 'Mean Depth',
+                'mean_thalweg_cv' = 'Mean Thalweg CV',
+                'naive_density_km' = 'Obs. Redd Density',
+                "net_error" = "Net Error"),
+         across(covariate,
+                factor,
+                levels = c('Mean Depth',
+                           'Obs. Redd Density',
+                           'Mean Thalweg CV',
+                           'Net Error'))) |> 
+  ggplot(aes(x = source,
+             y = value,
+             fill = source)) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1",
+                    name = "Data\nSource") +
+  theme(legend.position = 'bottom',
+        axis.title.x = element_blank()) +
+  labs(y = "Value") +
+  facet_wrap(~ covariate,
+             scales = 'free_y')
+
+```
+
+```{r ind-redd-est}
+# use estimates of net error and GAUC to estimate total redds for each index reach
+#-------------------------------------
+# set some thresholds
+# minimum number of total redds observed
+min_redds = 2
+# minimum number of weeks with at least one new redd observed
+min_non0_wks = 3
+# minimum net error
+# err_thres = -0.8
+err_thres <- quantile(one_obs_sthd$net_error, 0.05)
+
+#-------------------------------------
+
+# calculate season long average net error for each reach
+mean_ne <- index_redds |>
+  filter(visible_redds > 0) |> 
+  group_by(year, river,
+           index_reach) |> 
+  summarize(across(c(net_error,
+                     net_error_se),
+                   mean,
+                   na.rm = T),
+            .groups = "drop")
+
+# range(mean_ne$net_error)
+
+# determine what reach to switch error estimates to
+ne_switch = mean_ne |> 
+  filter(net_error < err_thres) |> 
+  select(year, river, 
+         old_reach = index_reach,
+         old_ne = net_error) %>%
+  distinct() |> 
+  left_join(expand(mean_ne,
+                   nesting(year, river,
+                           new_reach = index_reach,
+                           net_error,
+                           net_error_se)),
+            by = c("year",
+                   "river"),
+            multiple = "all") |> 
+  # filter(old_reach != new_reach) |> 
+  # filter(net_error > err_thres) |> 
+  mutate(old_num = str_extract(old_reach,
+                               "[:digit:]+"),
+         new_num = str_extract(new_reach,
+                               "[:digit:]+"),
+         across(ends_with("_num"),
+                as.numeric),
+         upstrm = if_else(new_num > old_num | old_reach == "W10",
+                          T, F),
+         diff_rch = abs(old_num - new_num),
+         diff_err = old_ne - net_error) %>%
+  group_by(year, river, old_reach) %>%
+  # mutate(best_diff = min(diff_err))
+  filter(diff_err == min(diff_err)) %>%
+  # filter(diff == min(diff[upstrm])) %>%
+  ungroup() |>
+  select(year, river,
+         index_reach = old_reach,
+         new_reach,
+         new_err = net_error,
+         new_err_se = net_error_se) |> 
+  # fix any remaining low errors to the threshold value
+  mutate(
+    across(
+      new_err,
+      ~ if_else(. < err_thres,
+                err_thres,
+                .)
+    ))
+
+
+index_redds_switch <- index_redds |> 
+  left_join(ne_switch,
+            by = join_by(year, river, index_reach)) |> 
+  mutate(net_error = if_else(!is.na(new_reach),
+                             new_err,
+                             net_error),
+         net_error_se = if_else(!is.na(new_reach),
+                                new_err_se,
+                                net_error_se)) %>%
+  select(-starts_with("new"))
+
+# results_lst <- 
+#   index_redds_switch |> 
+#   rename(new_redds = redds,
+#          survey_date = date,
+#          reach = index_reach) |> 
+#   summarize_redds(species = "Steelhead",
+#                   group_vars = c("year", "river", "reach"),
+#                   summ_vars = c("river", "location"),
+#                   min_non0_wks = min_non0_wks,
+#                   min_redds = min_redds,
+#                   gauc = T,
+#                   add_zeros = T,
+#                   use_cor = T)
+# 
+# index_summ <- results_lst$rch_est |> 
+#   rename(index_reach = reach)
+
+results_lst <- 
+  index_redds_switch |>
+  rename(reach = index_reach) |> 
+  mutate(type = "index") |> 
+  # bind_rows(non_index_rch |> 
+  #             rename(reach = non_index_reach) |> 
+  #             select(-index_reach,
+  #                    -method) |> 
+  #             mutate(type = "non-index")) |> 
+  bind_rows(non_index_rch |> 
+              rename(reach = non_index_reach) |> 
+              mutate(visible_redds = redds) |> 
+              left_join(index_redds_switch |> 
+                          group_by(year,
+                                   river,
+                                   location,
+                                   index_reach) |> 
+                          summarize(across(c(net_error,
+                                             net_error_se),
+                                           mean,
+                                           na.rm = T),
+                                    .groups = "drop"),
+                        by = join_by(year, river, location, index_reach)) |> 
+              select(-index_reach,
+                     -method) |> 
+              mutate(type = "non-index")) |> 
+  bind_rows(index_rch |>
+              filter(method == "Truth") |> 
+              rename(reach = index_reach) |> 
+              select(-method) |>
+              group_by(year, river, location, reach) |> 
+              summarize(across(redds,
+                               sum),
+                        .groups = "drop") |> 
+              mutate(type = "census")) |> 
+  bind_rows(no_err_rch %>%
+              filter(!(major == "Chiwawa" & year >= 2011),
+                     !(minor == "Tronson" & year >= 2011),
+                     !(minor == "Chiwaukum" & year >= 2011)) %>%
+              select(year,
+                     river = major,
+                     location,
+                     reach = minor,
+                     redds = total) |> 
+              mutate(type = "no-error")) |> 
+  rename(new_redds = redds,
+         survey_date = date) |> 
+  summarize_redds(species = "Steelhead",
+                  group_vars = c("year", "river", "reach", "type"),
+                  summ_vars = c("year", "river", "location"),
+                  min_non0_wks = min_non0_wks,
+                  min_redds = min_redds,
+                  gauc = T,
+                  add_zeros = T,
+                  use_cor = T)
+
+```
+
+
+We used the Gaussian Area-Under-the-Curve (GAUC) method described in @Murdoch2018 to estimate the number of redds using the number of new redds observed each survey, the mean of the estimated net error for that reach and the mean of the estimated net error standard error for that reach. If a reach failed to contain a minimum number of observed redds (`r min_redds`), or a minimum number of non-zero surveys (`r min_non0_wks`), or the GAUC model failed to converge, then the number of redds was estimated by dividing the total number of observed redds by the mean estimated net error. 
+
+In addition, if the estimated net error was below a threshold of `r round(err_thres, 2)`, we borrowed the net error estimate from the closest upstream index reach, as the initial estimate was deemed inappropriate. That threshold was defined by the 5th quantile of observed net error in the @Murdoch2018 study. If the net error in the closest upstream reach was also below this threshold, we fixed the net error in the reach to be `r round(err_thres, 2)`.
+
+### Census Reaches
+
+Reaches that were surveyed as part of the @Murdoch2018 study had census counts attached to them. Just like @Murdoch2018, we assumed these census counts were accurate and without error. We summed the census counts by year, river and reach. 
+
+### Non-Index Reaches
+
+First we ensured that all non-index reaches had an index reach associated with them that contained data for that year. We found that the non-index reaches W5 and W6 were associated with the index reach W6, but the index W6 failed to contain data in 2004 and 2005. Therefore, we re-assigned the index reach to be W8 (the next upstream reach) for those instances.
+
+<!-- Next, we constructed a different GAUC curve for the index reaches, based on the days since Feb 15 on the x-axis and the number of visible redds on the y-axis. We then assumed the associated non-index reach had the same estimated mean and variance of the index Gaussian curve, but a different scale coefficient. We calculated the new scale coefficient such that the new GAUC passed through the data point of observed redds in the non-index reach. The area under this curve is an estimate of observed redd-days, which we translated to total redds by dividing by redd life and observer net error (from the index reach). However, in some cases, such as when the number of redds observed in the non-index reach was greater than the expected value from the Gaussian curve of the index reach, this led to estimates of a larger scale coefficient in the non-index reach compared to the index reach, which in turn suggested there were more total redds in the non-index reach compared to the associated index reach, sometimes dramatically more.  -->
+
+```{r ni-redds, eval = F}
+# figure out which day on the GAUC curve the non-index reach survey was conducted
+non_index_redds <- non_index_rch %>%
+  mutate(day = difftime(date,
+                        ymd(paste0(year, "0215")),
+                        units = "days"),
+         across(day,
+                as.numeric)) %>%
+  # attach associated data from index reach
+  inner_join(results_lst$rch_est |> 
+               filter(type == "index") %>%
+               select(year, river, 
+                      index_reach = reach,
+                      ind_obs_redds = tot_feat,
+                      err_est, err_se,
+                      ind_redd_est = redd_est,
+                      ind_redd_se = redd_se,
+                      GAUC,
+                      data),
+             by = c("year", "river", "index_reach")) %>%
+  mutate(vis_redd_data = map(data,
+                             .f = function(x) {
+                               x %>%
+                                 mutate(day = difftime(survey_date,
+                                                       ymd(paste0(unique(year(x$survey_date)), "0215")),
+                                                       units = "days"),
+                                        across(day,
+                                               as.numeric)) %>%
+                                 select(day,
+                                        vis_redds = visible_redds)
+                             }),
+         vis_gauc = map(vis_redd_data,
+                        .f = function(x) {
+                          g_pois = glm(vis_redds ~ day + I(day^2),
+                                       data = x,
+                                       family = quasipoisson)
+                        })) %>%
+  mutate(pred_ind_vis_redds = map2(vis_gauc,
+                                   day,
+                                   .f = function(x, y) {
+                                     predict(x,
+                                             newdata = tibble(day = y),
+                                             type = "response",
+                                             se = T) %>%
+                                       enframe() %>%
+                                       unnest(value) %>%
+                                       filter(str_detect(name, "fit")) %>%
+                                       pivot_wider()
+                                   })) %>%
+  unnest(pred_ind_vis_redds) %>%
+  mutate(beta_params = map(vis_gauc,
+                           .f = function(x) {
+                             params <- coef(x) %>%
+                               enframe() %>%
+                               mutate(name = c('b0',
+                                               'b1',
+                                               'b2')) %>%
+                               pivot_wider()
+                             return(params)
+                           }
+  ),
+  curve_params = map(vis_gauc,
+                     .f = function(mod) {
+                       x = coef(mod)
+                       tau2 = -1/(2*x[3])
+                       ms = x[2] * tau2
+                       a = exp(x[1] + ms^2/(2*tau2))
+                       params = tibble("tau2" = tau2,
+                                       "ms" = ms,
+                                       "a" = a)
+                       return(params)
+                     })) %>%
+  unnest(ends_with("params")) %>%
+  mutate(new_a = redds / fit * a,
+         new_b0 = log(new_a) - (ms^2 / (2 * tau2))) %>%
+  mutate(new_coef = list(c(b0 = new_b0, b1, b2))) %>%
+  mutate(rch_grp = river,
+         rch_grp = if_else(non_index_reach == "W10",
+                           "W10",
+                           if_else(non_index_reach %in% paste0("W", 6:9),
+                                   "W6-W9",
+                                   if_else(non_index_reach %in% paste0("W", 1:5),
+                                           "W1-W5",
+                                           rch_grp))),
+         across(rch_grp,
+                as.factor),
+         across(rch_grp,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  mutate(across(rch_grp,
+                fct_collapse,
+                "W6-W10" = c("W6-W9",
+                             "W10"))) %>%
+  left_join(redd_life_summ,
+            by = "rch_grp") %>%
+  mutate(gauc_vcov = map(vis_gauc,
+                         .f = function(x) vcov(x))) %>%
+  rowwise() %>%
+  mutate(all_params = list(list(beta = c(new_b0, b1, b2),
+                                Sigma = gauc_vcov,
+                                err_est = err_est,
+                                err_se = err_se,
+                                redd_life_mean = redd_life_mean,
+                                redd_life_sd = redd_life_sd))) %>%
+  ungroup() %>%
+  mutate(redd_est = map_dbl(all_params,
+                            .f = function(lst) {
+                              x = lst$beta
+                              Fg = sqrt(-pi/x[3])*exp(x[1]-x[2]^2/(4*x[3]))
+                              E = Fg / ((lst$err_est + 1) * lst$redd_life_mean) %>%
+                                as.numeric()
+                              return(E)
+                            }),
+         redd_se = map_dbl(all_params,
+                           .f = function(lst) {
+                             cov_mat <- cbind(rbind(lst$Sigma,
+                                                    matrix(rep(0, nrow(lst$Sigma) + 2),
+                                                           nrow = 2)),
+                                              matrix(rep(0, nrow(lst$Sigma) + 6),
+                                                     ncol = 2))
+                             cov_mat[4,4] <- lst$err_se^2
+                             cov_mat[5,5] <- lst$redd_life_sd
+                             msm::deltamethod(~(sqrt(-pi/x3)*exp(x1-x2^2/(4*x3))) / ((x4 + 1) * x5),
+                                              mean = c(lst$beta, lst$err_est, lst$redd_life_mean),
+                                              cov = cov_mat) %>%
+                               return()
+                           })) %>%
+  mutate(redd_est = if_else(is.na(redd_est),
+                            redds / (err_est + 1),
+                            redd_est))
+
+
+```
+
+We then assumed the single redd survey in the non-index reach occurred post peak spawning, and merely divided the number of observed redds in the non-index reach by the estimate of net error from the associated index reach. This is potentially a conservative estimate of redds, since it's possible additional redds were constructed in the non-index reaches after the surveys were conducted. However, without additional surveys in non-index reaches, this may be the most accurate method.
+
+### Total Redds
+
+For all the reaches surveyed for redds each year, we can add the estimates of redds up across all reaches to estimate total redds in the Wenatchee. In calculating the standard error, an attempt was made to incorporate the fact that the reaches within a stream are not independent. Estimates of correlation between the reaches within a stream were made based on weekly observed redds. This method may not be perfect, since spawners could use certain reaches preferentially at different times in the season, but it may be the best we can do. Because correlations are often quite high between reaches, this is a better alternative than to naively assume the standard errors between reaches are independent of one another. These correlation estimates were combined with estimates of standard error at the reach scale to calculate a covariance matrix for the reaches within each stream, which was used when summing estimates of total redds to estimate the standard error at the stream scale. Failure to incorporate the correlations between reaches could result in an underestimate of standard error (i.e. uncertainty) at the stream scale. Different streams (and therefore reaches in different streams) were assumed to be independent. Because the correlation was estimated from weekly surveys, only correlations between index reaches within a stream were calculated (non-index reaches were assumed to be independent).
+
+```{r all-redds}
+all_redds <- results_lst$rch_est |> 
+  rename(method = type) |> 
+  mutate(across(method,
+                str_to_title)) |> 
+  select(year, river,
+         location,
+         reach,
+         method,
+         obs_redds = tot_feat,
+         err_est, err_se,
+         redd_est, redd_se) |> 
+  arrange(year, river, 
+          location,
+          reach, method)
+
+
+# all_redds %>%
+#   tabyl(river, year) |>
+#   adorn_totals()
+```
+
+```{r, eval = F}
+all_redds %>%
+  group_by(year,
+           method) %>%
+  summarize(across(c(obs_redds,
+                     redd_est),
+                   sum),
+            across(redd_se,
+                   ~ sqrt(sum(.^2))),
+            across(err_est,
+                   mean),
+            .groups = "drop") %>%
+  mutate(expn = redd_est / obs_redds) %>%
+  # filter(redd_est < 1e5) %>%
+  arrange(desc(expn))
+
+```
+
+
+## Redds to Spawners
+
+To translate estimates of redds to estimates of spawners by origin, we need data on the fish / redd to move from redds to total spawners and the proportion of hatchery origin spawners (pHOS) to split total spawners into hatchery and natural origin. The fish / redd estimate comes from the sex ratio, assuming one redd per female (Males / Females + 1). The sex ratio was determined using fish collected for broodstock from 2004-2006, fish sampled at Dryden from 2007 - 2010, and PIT tags from Priest (used in the DABOM model) detected in the Wenatchee subbasin from 2011 on. When using PIT tags, we used PIT tags detected in specific areas to generate more spatially refined fish/redd estimates (e.g. using tags detected in the lower or upper areas of the mainstem Wenatchee, and applying those estimates to the corresponding reaches).
+
+```{r older-fpr}
+fpr_df_old <- read_excel(data_file,
+                         "Sex ratios (FPR)",
+                         range = anchored("A2",
+                                          dim = c(26,
+                                                  12))) %>%
+  rename(run_year = `...1`,
+         brood_year = `...2`) %>%
+  rename(year = brood_year,
+         method = Method) %>%
+  select(-run_year) %>%
+  select(-starts_with("...")) %>%
+  filter(!is.na(year)) %>%
+  mutate(m_fish = `Wild Males` + `Hatchery Males`,
+         f_fish = `Wild Females` + `Hatchery Females`,
+         h_fish = `Hatchery Males` + `Hatchery Females`,
+         w_fish = `Wild Males` + `Wild Females`,
+         prop_m = m_fish / (m_fish + f_fish),
+         prop_se = sqrt((prop_m * (1 - prop_m)) / (m_fish + f_fish)),
+         fpr = (prop_m) / (1 - prop_m) + 1) %>%
+  select(-contains("Wild"),
+         -contains("Hatchery")) %>%
+  rowwise() %>%
+  mutate(fpr_se = deltamethod(~ x1 / (1 - x1) + 1,
+                              mean = prop_m,
+                              cov = prop_se^2)) %>%
+  ungroup() %>%
+  mutate(phos = h_fish / (h_fish + w_fish),
+         phos_se = sqrt((phos * (1 - phos)) / (h_fish + w_fish))) %>%
+  select(-FPR,
+         -pHOS)
+```
+
+```{r spawner-origin}
+spwn_org_redd_river_fpr <- results_lst$summ_est |> 
+  select(year, river,
+         location,
+         n_rchs,
+         redd_obs = strm_obs,
+         redd_est = strm_est,
+         redd_se = strm_se) |> 
+  left_join(fpr_df_old %>%
+              select(year,
+                     starts_with("fpr"),
+                     starts_with("phos")),
+            by = "year") %>%
+  rowwise() %>%
+  mutate(spawn_est = redd_est * fpr,
+         spawn_se = deltamethod(~ x1 * x2,
+                                mean = c(redd_est, 
+                                         fpr),
+                                cov = diag(c(redd_se,
+                                             fpr_se)^2))) %>%
+  mutate(hos_spwn = redd_est * fpr * phos,
+         hos_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  mutate(nos_spwn = redd_est * fpr * (1 - phos),
+         nos_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       1 - phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  ungroup()
+
+```
+
+
+## Tributary Spawners
+
+From 2011 onwards, we used the DABOM model to estimate tributary spawners. We assumed that every fish that escaped into a tributary was a successful spawner. Because counts at Priest Rapids dam have been questionable in recent years, we used DABOM estimates calculated based on counts at Rock Island dam for 2016, 2017, 2019 - 2022 (estimates in 2018 were very similar regardless of whether Priest or Rock Island counts were used, so we used Priest that year).
+
+This process also allowed us to compile the redd and spawner estimates from 2014-2022, which utilized the two-observer redd observer error model from @Murdoch2018 for the mainstem spawners (redd counts) and PIT-tag based estimates of escapement to all the tributaries. This includes some redds counted in tributaries downstream of the PIT tag arrays. For these, we assumed no observer error, and applied the fish/redd and pHOS estimate from that tributary based on observed PIT tags in that tributary.
+
+```{r trib-spawners}
+trib_spawners_all = read_excel(
+  here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
+       "UC_STHD_Model_Output.xlsx"),
+  "Run Escp All Locations") %>%
+  clean_names() |> 
+  filter(location %in% c('ICL',
+                         'PES',
+                         'MCL',
+                         'CHM',
+                         'CHW',
+                         'CHL',
+                         'NAL',
+                         'LWN',
+                         'WTL')) %>%
+  mutate(across(location,
+                recode,
+                'CHL' = 'Chiwawa',
+                'CHM' = 'Chumstick',
+                'CHW' = 'Chiwaukum',
+                'ICL' = 'Icicle',
+                'LWN' = 'Little Wenatchee',
+                'MCL' = 'Mission',
+                'NAL' = 'Nason',
+                'PES' = 'Peshastin',
+                'WTL' = 'White River')) %>%
+  select(year = spawn_year,
+         origin,
+         river = location,
+         spwn = estimate,
+         se) %>%
+  mutate(origin = recode(origin,
+                         "Natural" = "nos",
+                         "Hatchery" = "hos")) %>%
+  arrange(year, river, origin) %>%
+  pivot_wider(names_from = origin,
+              values_from = c(spwn,
+                              se),
+              names_glue = "{origin}_{.value}")
+
+# pull out direct estimates where needed
+trib_pit_est <- method_df %>%
+  filter(method == "PIT") %>%
+  select(river,
+         year) %>%
+  distinct() %>%
+  left_join(trib_spawners_all,
+            by = c("river", "year"))
+
+
+tag_summ <- read_excel(
+  here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
+       "UC_STHD_Model_Output.xlsx"),
+  "Tag Summary") %>%
+  clean_names() |> 
+  filter(str_detect(path, "LWE")) |> 
+  mutate(location = if_else(spawn_node %in% c('TUM', 'UWE'),
+                            'Above_TUM',
+                            if_else(str_detect(path, 'TUM'),
+                                    'Tribs_above_TUM',
+                                    if_else(str_detect(spawn_node, "LWE"),
+                                            "Below_TUM",
+                                            "Tribs_below_TUM")))) %>%
+  mutate(location = factor(location,
+                           levels = c("Below_TUM",
+                                      "Tribs_below_TUM",
+                                      'Above_TUM',
+                                      'Tribs_above_TUM'))) %>%
+  mutate(trib = if_else(str_detect(path, " CHL"),
+                        "Chiwawa",
+                        if_else(str_detect(path, "CHM"),
+                                "Chumstick",
+                                if_else(str_detect(path, 'CHW'),
+                                        'Chiwaukum',
+                                        if_else(str_detect(path, 'ICL'),
+                                                'Icicle',
+                                                if_else(str_detect(path, 'LWN'),
+                                                        'Little Wenatchee',
+                                                        if_else(str_detect(path, 'MCL'),
+                                                                'Mission',
+                                                                if_else(str_detect(path, 'NAL'),
+                                                                        'Nason',
+                                                                        if_else(str_detect(path, 'PES'),
+                                                                                'Peshastin',
+                                                                                if_else(str_detect(path, 'WTL'),
+                                                                                        'White River',
+                                                                                        NA_character_)))))))))) %>%
+  select(year = spawn_year,
+         tag_code,
+         path,
+         trib,
+         location,
+         spawn_node,
+         origin,
+         sex,
+         age)
+
+pit_sex_org <- tag_summ |> 
+  mutate(location = if_else(location %in% c("Above_TUM", "Below_TUM"), 
+                            as.character(location), 
+                            trib)) %>% 
+  group_by(year, location) %>% 
+  summarize(n_tags = n(),
+            n_f = sum(sex == "F"), 
+            n_m = sum(sex == "M"), 
+            n_nor = sum(origin == "W"), 
+            n_hor = sum(origin == "H"),
+            .groups = "drop") %>%
+  rowwise() %>%
+  mutate(f_prop = n_f / (n_f + n_m),
+         f_prop_se = sqrt((f_prop * (1 - f_prop)) / (n_f + n_m)),
+         fpr = (1 - f_prop) / f_prop + 1,
+         # fpr_se = deltamethod(~ (1 - x1) / x1 + 1,
+         #                      mean = f_prop,
+         #                      cov = diag(f_prop_se^2,
+         #                                 nrow = 1,
+         #                                 ncol = 1,
+         #                                 names = F)),
+         fpr_se = 1 / (f_prop^2) * f_prop_se,
+         phos = n_hor / (n_hor + n_nor),
+         phos_se = sqrt((phos * (1 - phos)) / (n_hor + n_nor))) %>%
+  select(year, location,
+         n_tags,
+         starts_with("fpr"),
+         starts_with("phos"))
+
+age_comp_org <- 
+  read_excel(
+    here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
+         "UC_STHD_Model_Output.xlsx"), 
+    "TotalAge at Maturity") |> 
+  filter(Population == "Wenatchee")
+
+
+# pull together redd data and estimates from 2014 - 2022
+
+# query and prep data
+prep_wen_sthd_data(query_year = 2014:2022,
+                   n_observers = "two",
+                   save_rda = F)
+
+# set some thresholds
+# minimum number of total redds observed
+min_redds = 2
+# minimum number of weeks with at least one new redd observed
+min_non0_wks = 3
+#-------------------------------------
+
+res_rec_lst <- summarize_redds(redd_df,
+                               species = "Steelhead",
+                               group_vars = c("spawn_year", 
+                                              "river", "reach", "index", "survey_type"),
+                               summ_vars = c("spawn_year", 
+                                             "river", "location", "index"),
+                               min_non0_wks = min_non0_wks,
+                               min_redds = min_redds,
+                               gauc = T,
+                               add_zeros = T,
+                               use_cor = T)
+
+
+```
+
+
+```{r revise-fpr}
+# redo 2011-2013 with location specific fpr and pHOS from PIT tags
+spwn_org_redd <- spwn_org_redd_river_fpr %>%
+  left_join(pit_sex_org %>%
+              select(year,
+                     location,
+                     fpr_pit = fpr,
+                     fpr_pit_se = fpr_se,
+                     phos_pit = phos,
+                     phos_pit_se = phos_se),
+            by = c("year",
+                   "location")) %>%
+  mutate(fpr = if_else(!is.na(fpr_pit),
+                       fpr_pit,
+                       fpr),
+         fpr_se = if_else(!is.na(fpr_pit_se),
+                          fpr_pit_se,
+                          fpr_se),
+         phos = if_else(!is.na(phos_pit),
+                        phos_pit,
+                        phos),
+         phos_se = if_else(!is.na(phos_pit_se),
+                           phos_pit_se,
+                           phos_se)) %>%
+  select(-contains("_pit")) %>%
+  rowwise() %>%
+  mutate(spawn_est = redd_est * fpr,
+         spawn_se = deltamethod(~ x1 * x2,
+                                mean = c(redd_est, 
+                                         fpr),
+                                cov = diag(c(redd_se,
+                                             fpr_se)^2))) %>%
+  mutate(hos_spwn = redd_est * fpr * phos,
+         hos_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  mutate(nos_spwn = redd_est * fpr * (1 - phos),
+         nos_se = deltamethod(~ x1 * x2 * x3,
+                              mean = c(redd_est,
+                                       fpr,
+                                       1 - phos),
+                              cov = diag(c(redd_se,
+                                           fpr_se,
+                                           phos_se)^2))) %>%
+  ungroup()
+
+```
+
+```{r spwn-strm-est}
+spwn_org_strm_est <- spwn_org_redd %>%
+  add_column(method_est = "Redd",
+             .after = 2) %>%
+  bind_rows(trib_pit_est %>%
+              mutate(method_est = "PIT",
+                     location = river)) %>%
+  select(year, river,
+         location,
+         method = method_est,
+         n_rchs,
+         starts_with("hos"),
+         starts_with("nos")) %>%
+  arrange(year, river,
+          method) |> 
+  group_by(year, 
+           river,
+           method) |> 
+  summarize(
+    across(
+      c(ends_with("spwn")),
+      sum),
+    across(
+      c(ends_with("_se")),
+      ~ sqrt(sum(.^2))),
+    .groups = "drop"
+  )
+
+spwn_org_est <- spwn_org_strm_est %>%
+  group_by(year) %>%
+  summarize(across(ends_with("spwn"),
+                   sum),
+            across(ends_with("se"),
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop")
+
+```
+
+
+## Expansion
+
+For some tributaries that never had redd surveys, but do have PIT tag arrays (Chiwaukum, Chumstick and Mission), we estimated the portion of the hatchery and natural origin spawners that were estimated in those tributaries for 2012 - 2022, excluding 2020 because our estimates of mainstem spawners in 2020 were done with a different method due to COVID preventing redd surveys from occurring. We calculated the mean proportion of spawners by tributary, across the years we had estimates for. Years when no PIT tags were detected in a particular tributaries were not included in that mean (since that may be an underestimate of the number of spawners in that tributary). The proportions were then summed across all three tributaries to estimate what proportion of the total run, by origin, that spawned in those tributaries. 
+
+We then expanded the estimates of spawners in the total Wenatchee basin for 2004-2010 by this proportion, to account for the fact that no redd surveys were conducted in those tributaries, and so any steelhead spawners there were missing from estimates in those years. We did not expand estimates for 2011-2013, except in one case, because we did have PIT tag estimates of escapement to those tributaries for those years. Because the PIT array in Mission Creek (MCL) was installed in October 2011, there were no PIT-tag based estimates of spawners in Mission for spawn year 2011 either, nor were there redd counts. For that year, we used the mean proportion of spawners estimated in Mission from 2012-2022 to expand the total estimate for the Wenatchee basin.
+
+```{r recent-spawners}
+recent_2011_2013 <- spwn_org_strm_est |> 
+  filter(between(year, 2011, 2013)) |> 
+  mutate(
+    across(
+      river,
+      ~ recode(.x,
+               "Wenatchee" = "Wenatchee (mainstem)")
+    )
+  ) |> 
+  rename(hos_est = hos_spwn,
+         nos_est = nos_spwn) |> 
+  group_by(year,
+           river) |> 
+  summarize(
+    across(
+      ends_with("est"),
+      sum
+    ),
+    across(
+      ends_with("se"),
+      ~ sqrt(sum(.^2))
+    ),
+    .groups = "drop")
+
+# add yearly totals
+recent_2011_2013 <- recent_2011_2013 |> 
+  bind_rows(recent_2011_2013 |> 
+              group_by(year) |> 
+              summarize(
+                across(
+                  ends_with("est"),
+                  sum
+                ),
+                across(
+                  ends_with("se"),
+                  ~ sqrt(sum(.^2))
+                ),
+                .groups = "drop") |> 
+              add_column(river = "Total",
+                         .after = "year")) |> 
+  mutate(
+    across(
+      river,
+      ~ fct_relevel(., 
+                    "Total",
+                    after = Inf)
+    )
+  ) |> 
+  arrange(year, river)
+
+recent_spwn_2014_pres <- 
+  read_excel(
+    here("T:/DFW-Team FP Upper Columbia Escapement - General/UC_Sthd/estimates",
+         "UC_STHD_Model_Output.xlsx"),
+    "Spawning Escp by Origin") %>%
+  clean_names() |> 
+  filter(population == "Wenatchee") |> 
+  select(year = spawn_year,
+         river,
+         ends_with("_est"),
+         ends_with("_se"),
+         -contains("p_hos"))
+
+
+
+recent_spwn_all <-
+  recent_2011_2013 |>
+  bind_rows(recent_spwn_2014_pres)
+
+# get the proportion of trib spawners
+prop_trib <- recent_spwn_all |> 
+  filter(between(year, 2012, max(recent_spwn_all$year)),
+         river %in% unique(method_df$river[method_df$method == "Expansion"])) |> 
+  left_join(recent_spwn_all |> 
+              filter(river == "Total") |> 
+              select(-river) |> 
+              rename_with(function(x) paste0("tot_", x),
+                          .cols = -year)) |> 
+  filter(!is.na(tot_hos_est)) %>%
+  mutate(hos_prop = hos_est / tot_hos_est,
+         nos_prop = nos_est / tot_nos_est) %>%
+  rowwise() %>%
+  mutate(hos_prop_se = deltamethod(~ x1 / x2,
+                                   mean = c(hos_est,
+                                            tot_hos_est),
+                                   cov = diag(c(hos_se,
+                                                tot_hos_se)^2)),
+         nos_prop_se = deltamethod(~ x1 / x2,
+                                   mean = c(nos_est,
+                                            tot_nos_est),
+                                   cov = diag(c(nos_se,
+                                                tot_nos_se)^2))) %>%
+  select(year, river,
+         contains("prop"))
+```
+
+```{r expn-factor}
+expn_wen <- prop_trib %>%
+  group_by(river) %>%
+  summarize(across(ends_with("prop"),
+                   ~ mean(.[. > 0])),
+            across(ends_with("se"),
+                   ~ mean(.[. > 0])),
+            .groups = "drop") %>%
+  summarize(across(ends_with("prop"),
+                   sum),
+            across(ends_with("se"),
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop") |> 
+  crossing(year = 2004:2010) |> 
+  relocate(year,
+           .before = 1)
+
+# for Mission in 2011
+expn_mission <- prop_trib %>%
+  group_by(river) %>%
+  summarize(across(ends_with("prop"),
+                   ~ mean(.[. > 0])),
+            across(ends_with("se"),
+                   ~ mean(.[. > 0])),
+            .groups = "drop") |> 
+  filter(river == "Mission") |> 
+  mutate(year = 2011) |> 
+  relocate(year,
+           .before = 1)
+
+# combine both expansion factors
+expn_df <- expn_wen |> 
+  bind_rows(expn_mission |> 
+              select(-river)) |> 
+  arrange(year)
+
+
+spwn_org_expnd <- spwn_org_est %>%
+  left_join(expn_df) %>%
+  mutate(across(hos_spwn,
+                ~ if_else(!is.na(hos_prop),
+                          . / (1 - hos_prop),
+                          .)),
+         across(nos_spwn,
+                ~ if_else(!is.na(nos_prop),
+                          . / (1 - nos_prop),
+                          .))) %>%
+  rowwise() %>%
+  mutate(hos_se = if_else(!is.na(hos_prop),
+                          deltamethod(~ x1 / (1 - x2),
+                                      mean = c(hos_spwn,
+                                               hos_prop),
+                                      cov = diag(c(hos_se,
+                                                   hos_prop_se)^2)),
+                          hos_se),
+         nos_se = if_else(!is.na(nos_prop),
+                          deltamethod(~ x1 / (1 - x2),
+                                      mean = c(nos_spwn,
+                                               nos_prop),
+                                      cov = diag(c(nos_se,
+                                                   nos_prop_se)^2)),
+                          nos_se)) %>%
+  ungroup() %>%
+  select(-contains("prop"))
+
+
+```
+
+# Results
+
+## Redd Estimates
+
+Tables \@ref(tab:redd-est-tab) and \@ref(tab:redd-recent-est-tab) show the estimate of total redds for every reach in every year.
+
+```{r redd-est-tab}
+all_redds %>%
+  mutate(across(year,
+                as.factor)) %>%
+  mutate(
+    across(reach,
+           ~ fct_relevel(., 
+                         "W10",
+                         after = Inf)),
+    across(river,
+           ~ fct_relevel(., 
+                         "Wenatchee",
+                         after = Inf))
+  ) |> 
+  arrange(year,
+          river,
+          reach) %>%
+  # filter(obs_redds > 0) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Se$", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        format.args = list(big.mark = ","),
+        digits = c(rep(0, 6),
+                   3, 3,
+                   0, 1),
+        longtable = T,
+        caption = "Estimates of redds (and SE) for all reaches in years 2004 - 2013. The method (Index, Non-Index or Census) and total number of observed redds is noted, as well as the mean net error (with standard error).") %>%
+  kable_styling(font_size = 8,
+                latex_options = c("repeat_header",
+                                  "scale_down"),
+                repeat_header_continued = "\\textit{(Continued on Next Page...)}")
+```
+
+```{r redd-recent-est-tab}
+res_rec_lst$rch_est |> 
+  select(year = spawn_year,
+         river,
+         location,
+         reach,
+         method = index,
+         obs_redds = tot_feat,
+         err_est, err_se,
+         redd_est, redd_se) |> 
+  mutate(across(method,
+                recode,
+                "Y" = "Index",
+                "N" = "Non-Index")) %>%
+  mutate(across(c(year,
+                  reach),
+                as.factor),
+         across(reach,
+                fct_relevel,
+                "W10",
+                after = Inf)) %>%
+  arrange(year,
+          reach) %>%
+  filter(obs_redds > 0) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Se$", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        format.args = list(big.mark = ","),
+        digits = c(rep(0, 6),
+                   3, 3,
+                   0, 1),
+        longtable = T,
+        caption = "Estimates of redds (and SE) for all reaches in more recent years where redds were observed. The method (Index, Non-Index) and total number of observed redds is noted, as well as the mean net error (with standard error).") %>%
+  kable_styling(latex_options = c("repeat_header",
+                                  "scale_down"),
+                repeat_header_continued = "\\textit{(Continued on Next Page...)}")
+
+```
+
+
+## Spawner Estimates
+
+Table \@ref(tab:spwn-redd-tab) shows the estimates of spawners for areas with redd counts from 2004-2013. This includes the total of observed redds, the mean observer net error, estimates of redds, and the fish/redd and pHOS estimates that were used to calculate hatchery and natural origin spawners from estimates of redds. 
+
+```{r spwn-redd-tab, fig.pos = "H"}
+spwn_org_redd %>%
+  # select(-starts_with("spawn")) %>%
+  group_by(year) %>%
+  summarize(across(c(n_rchs,
+                     redd_obs,
+                     redd_est,
+                     spawn_est,
+                     hos_spwn,
+                     nos_spwn),
+                   sum),
+            across(c(#err_est,
+              starts_with("fpr"),
+              starts_with("phos")),
+              mean),
+            across(c(redd_se,
+                     spawn_se,
+                     hos_se,
+                     nos_se),
+                   ~ sqrt(sum(.^2))),
+            .groups = "drop") %>%
+  select(any_of(names(spwn_org_redd))) %>%
+  mutate(across(year,
+                as.factor)) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |>
+      str_replace("Fpr", "FpR") |> 
+      str_replace("Se$", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        format.args = list(big.mark = ","),
+        digits = c(0, 0, 0, 
+                   0, 1,
+                   2, 2,
+                   3, 3,
+                   0, 1,
+                   0, 1,
+                   0, 1),
+        caption = "Estimates of spawners, by origin, based on redd, fish/redd and pHOS estimates.") %>%
+  kable_styling(latex_options = c("scale_down",
+                                  "HOLD_position"))
+```
+
+## PIT Estimates
+
+Table \@ref(tab:pit-est-tab) shows the PIT-tag based estimates of escapement to particular tributaries in selected years. These years are to be combined with redd-based spawner estimates.
+
+```{r pit-est-tab}
+# trib_pit_est %>%
+trib_spawners_all |> 
+  arrange(year, river) |> 
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        longtable = T,
+        caption = "Estimates of spawners by origin (with standard error), split out by tributary and year.") %>%
+  kable_styling(latex_options = c("repeat_header",
+                                  "scale_down"),
+                repeat_header_continued = "\\textit{(Continued on Next Page...)}")
+```
+
+## Spawners by Tributary
+
+Table \@ref(tab:spwn-trib-tab) shows estimates of spawners, by origin, broken down by river for 2004 - 2013. These include mainstem Wenatchee estimates as well.
+
+```{r spwn-trib-tab}
+spwn_org_strm_est %>%
+  mutate(across(year,
+                as.factor)) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        digits = c(0, 0, 0, 
+                   0, 0,
+                   1, 1),
+        longtable = T,
+        format.args = list(big.mark = ","),
+        caption = "Estimates of spawners in the Wenatchee by tributary and mainstem areas, based on redd surveys and PIT tag estimates for certain tributaries.") %>%
+  kable_styling(latex_options = c("repeat_header"),
+                repeat_header_continued = "\\textit{(Continued on Next Page...)}")
+```
+
+
+## Initial Total Spawners
+
+Table \@ref(tab:init-spwn-tab) shows the initial estimates, by origin, of spawners in the Wenatchee population for spawn years 2004-2013. This only includes areas surveyed for redds or that had PIT tag escapement estimates (some tributaries in 2011-2013). Some of those areas had the redd surveys replaced by PIT tag escapement estimates in later years. 
+
+```{r init-spwn-tab}
+spwn_org_est %>%
+  mutate(across(year,
+                as.factor)) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        digits = c(0, 0, 0, 
+                   1, 1),
+        format.args = list(big.mark = ","),
+        caption = "Initial estimates of total spawners in the Wenatchee basin, based on redd surveys and PIT tag estimates for certain tributaries.") %>%
+  kable_styling()
+```
+
+
+## Expansion
+
+Table \@ref(tab:expn-tab) shows the proportion of the overall number of spawners in 2012-2022 (except 2020) estimated to be in Chiwaukum, Chumstick and Mission creeks. These are the proportions used to expand older estimates (pre-2011) of total spawners by origin. That table also shows the mean proportion of spawners in Mission Creek alone, from 2012-2022. That proportion was used to expand estimates in 2011 of total spawners by origin. 
+
+```{r expn-tab, fig.pos = "H"}
+expn_df %>%
+  mutate(across(year,
+                ~ if_else(between(., 2004, 2010),
+                          "2004 - 2010",
+                          as.character(.)))) |> 
+  distinct() |> 
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        digits = 3,
+        caption = "Mean proportion of total spawners within the Wenatchee basin estimated to have moved into Chiwaukum, Chumstick and Mission creeks, by origin, with standard error. Proportion in 2011 is only for Mission Creek.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+```
+
+## Final Total Spawners
+
+Table \@ref(tab:spwn-old-tab) shows final estimates of spawners, by origin and year, for 2004-2013. This includes expanding the estimates in Table \@ref(tab:init-spwn-tab) by the expansion factors from Table \@ref(tab:expn-tab) to account for the unmonitored tributaries during this time period.
+
+```{r spwn-old-tab, fig.pos = "H"}
+spwn_org_expnd %>%
+  mutate(across(year,
+                as.factor)) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        digits = c(0, 0, 0, 
+                   1, 1),
+        format.args = list(big.mark = ","),
+        caption = "Final estimates of total spawners in the Wenatchee basin, based on redd surveys, PIT tag estimates for certain tributaries and expanded for tributaries without redd surveys, for years 2004 - 2013.") %>%
+  kable_styling(latex_options = c("HOLD_position"))
+
+```
+
+```{r complete-spwn-ts}
+# compile complete time-series
+wen_spwn <- spwn_org_expnd %>%
+  ungroup() |> 
+  bind_rows(recent_spwn_2014_pres |> 
+              filter(river == "Total") |> 
+              select(-river) |> 
+              rename(nos_spwn = nos_est,
+                     hos_spwn = hos_est)) |> 
+  arrange(year)
+```
+
+
+```{r save-ts, eval = T}
+# save as csv
+wen_spwn %>%
+  mutate(across(ends_with("spwn"),
+                round_half_up)) %>%
+  write_csv(file = here("analysis/data/derived_data",
+                        "Wenatchee_Sthd_Spwn_2004-2022.csv"))
+
+age_comp_org %>%
+  mutate(across(-c(1:5),
+                round,
+                digits = 4)) %>%
+  write_csv(file = here("analysis/data/derived_data",
+                        "Wenatchee_Sthd_Age_2011-2022.csv"))
+
+
+```
+
+
+Table \@ref(tab:spwn-all-tab) extends Table \@ref(tab:spwn-old-tab) to include the more recent years of spawner estimates, displaying the complete time-series to date of total steelhead spawners, by origin, in the Wenatchee basin. Figure \@ref(fig:spwn-ts) graphs the same time-series, with 95% confidence intervals.
+
+```{r spwn-all-tab, fig.pos = "H"}
+wen_spwn %>%
+  mutate(across(year,
+                as.factor)) %>%
+  clean_names("title") |> 
+  rlang::set_names(nm = function(x) {
+    x |> 
+      str_replace("Hos", "HOS") |> 
+      str_replace("Nos", "NOS") |> 
+      str_replace("Se", "SE")
+  }) |> 
+  kable(booktabs = T,
+        linesep = "",
+        digits = c(0, 0, 0, 
+                   1, 1),
+        format.args = list(big.mark = ","),
+        longtable = T,
+        caption = "Final estimates of total spawners in the Wenatchee basin, based on redd surveys, PIT tag estimates for certain tributaries and expanded for tributaries without redd surveys.") %>%
+  kable_styling(latex_options = c("repeat_header",
+                                  "HOLD_position"),
+                repeat_header_continued = "\\textit{(Continued on Next Page...)}")
+```
+
+```{r spwn-ts, fig.pos = "H", fig.cap = "Time-series of spawner estimates, facted by origin. Colors show the estimation method. Error bars show the 95% confidence intervals."}
+wen_spwn %>%
+  mutate(Method = if_else(year == 2020,
+                          "RT Survival",
+                          if_else(year < 2011,
+                                  "1 Obs Model",
+                                  if_else(between(year, 2011, 2013),
+                                          "1 Obs Model + PIT",
+                                          if_else(year > 2013,
+                                                  "2 Obs Model + PIT",
+                                                  NA_character_))))) %>%
+  pivot_longer(cols = -c(year, Method),
+               names_to = "origin",
+               values_to = "value") %>%
+  mutate(metric = if_else(str_detect(origin, "se"),
+                          "se",
+                          "spwn"),
+         across(origin,
+                str_remove,
+                "_spwn"),
+         across(origin,
+                str_remove,
+                "_se")) %>%
+  pivot_wider(names_from = metric,
+              values_from = value) %>%
+  mutate(across(origin,
+                recode,
+                "hos" = "Hatchery",
+                "nos" = "Natural")) %>% 
+  ggplot(aes(x = year,
+             y = spwn,
+             color = Method)) +
+  geom_line(color = "darkgray") +
+  geom_errorbar(aes(ymin = qnorm(0.025, spwn, se),
+                    ymax = qnorm(0.975, spwn, se)),
+                # color = "gray60",
+                width = 0) +
+  geom_point(size = 2) +
+  facet_wrap(~ origin,
+             ncol = 1) +
+  scale_color_brewer(palette = "Set1") +
+  theme(legend.position = "bottom") +
+  labs(x = "Year",
+       y = "Spawners")
+```
+
+
+<!-- The following line inserts a page break  -->
+\newpage
+
+# References 
+<!-- The following line ensures the references appear here for the MS Word or HTML output files, rather than right at the end of the document (this will not work for PDF files):  -->
+<div id="refs"></div>
+
+<!-- \newpage -->
+
+<!-- ### Colophon -->
+
+<!-- This report was generated on `r Sys.time()` using the following computational environment and dependencies:  -->
+
+<!-- ```{r colophon, cache = FALSE} -->
+<!-- # which R packages and versions? -->
+<!-- if ("devtools" %in% installed.packages()) devtools::session_info() -->
+<!-- ``` -->
+
+<!-- The current Git commit details are: -->
+
+<!-- ```{r} -->
+<!-- # what commit is this file at?  -->
+<!-- if ("git2r" %in% installed.packages() & git2r::in_repository(path = ".")) git2r::repository(here::here())   -->
+<!-- ``` -->
