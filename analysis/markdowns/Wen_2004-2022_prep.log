@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2023.2.16)  18 APR 2023 14:12
+This is pdfTeX, Version 3.141592653-2.6-1.40.24 (TeX Live 2022) (preloaded format=pdflatex 2023.2.16)  18 APR 2023 16:22
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -620,15 +620,12 @@ Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 150.
 [1
 
 {c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-var/fonts/map/pdftex/updmap/pdftex.map} <../templates/wdfwlogo_clr.png>]
-
-LaTeX Warning: Reference `(' on page 2 undefined on input line 194.
-
-<../figures/rl-box-org-1.pdf, id=102, 433.62pt x 361.35pt>
+<../figures/rl-box-org-1.pdf, id=103, 433.62pt x 361.35pt>
 File: ../figures/rl-box-org-1.pdf Graphic file (type pdf)
 <use ../figures/rl-box-org-1.pdf>
 Package pdftex.def Info: ../figures/rl-box-org-1.pdf  used on input line 222.
 (pdftex.def)             Requested size: 433.61894pt x 361.34912pt.
-<../figures/ne-comp-1.pdf, id=104, 433.62pt x 361.35pt>
+<../figures/ne-comp-1.pdf, id=105, 433.62pt x 361.35pt>
 File: ../figures/ne-comp-1.pdf Graphic file (type pdf)
 <use ../figures/ne-comp-1.pdf>
 Package pdftex.def Info: ../figures/ne-comp-1.pdf  used on input line 250.
@@ -636,7 +633,7 @@ Package pdftex.def Info: ../figures/ne-comp-1.pdf  used on input line 250.
 
 LaTeX Warning: `!h' float specifier changed to `!ht'.
 
-<../figures/coef-comp-1.pdf, id=107, 433.62pt x 361.35pt>
+<../figures/coef-comp-1.pdf, id=108, 433.62pt x 361.35pt>
 File: ../figures/coef-comp-1.pdf Graphic file (type pdf)
 <use ../figures/coef-comp-1.pdf>
 Package pdftex.def Info: ../figures/coef-comp-1.pdf  used on input line 274.
@@ -815,30 +812,25 @@ Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 878.
 [17]
 File: ../templates/wdfwlogo_clr.png Graphic file (type png)
 <use ../templates/wdfwlogo_clr.png>
-Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 911.
+Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 906.
 (pdftex.def)             Requested size: 53.61517pt x 34.13991pt.
 [18]
 File: ../templates/wdfwlogo_clr.png Graphic file (type png)
 <use ../templates/wdfwlogo_clr.png>
-Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 954.
+Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 952.
 (pdftex.def)             Requested size: 53.61517pt x 34.13991pt.
 [19
 pdfTeX warning (ext4): destination with the same identifier (name{table.10}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.954 
+l.952 
       
 pdfTeX warning (ext4): destination with the same identifier (name{table.11}) has been already used, duplicate ignored
 <argument> ...shipout:D \box_use:N \l_shipout_box 
                                                   \__shipout_drop_firstpage_...
-l.954 
-      
-pdfTeX warning (ext4): destination with the same identifier (name{table.12}) has been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.954 
+l.952 
       ]
-<../figures/spwn-ts-1.pdf, id=249, 433.62pt x 361.35pt>
+<../figures/spwn-ts-1.pdf, id=250, 433.62pt x 361.35pt>
 File: ../figures/spwn-ts-1.pdf Graphic file (type pdf)
 <use ../figures/spwn-ts-1.pdf>
 Package pdftex.def Info: ../figures/spwn-ts-1.pdf  used on input line 994.
@@ -847,7 +839,12 @@ File: ../templates/wdfwlogo_clr.png Graphic file (type png)
 <use ../templates/wdfwlogo_clr.png>
 Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 998.
 (pdftex.def)             Requested size: 53.61517pt x 34.13991pt.
-[20]
+[20
+pdfTeX warning (ext4): destination with the same identifier (name{table.12}) has been already used, duplicate ignored
+<argument> ...shipout:D \box_use:N \l_shipout_box 
+                                                  \__shipout_drop_firstpage_...
+l.998 \newpage
+              ]
 File: ../templates/wdfwlogo_clr.png Graphic file (type png)
 <use ../templates/wdfwlogo_clr.png>
 Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 998.
@@ -864,27 +861,24 @@ Package pdftex.def Info: ../templates/wdfwlogo_clr.png  used on input line 1013.
 (pdftex.def)             Requested size: 53.61517pt x 34.13991pt.
 [22] (./Wen_2004-2022_prep.aux)
 
-LaTeX Warning: There were undefined references.
-
-
 LaTeX Warning: There were multiply-defined labels.
 
 Package rerunfilecheck Info: File `Wen_2004-2022_prep.out' has not changed.
 (rerunfilecheck)             Checksum: 9A1078D63C6ADE19A9DAA496B558480A;1844.
  ) 
 Here is how much of TeX's memory you used:
- 13092 strings out of 477989
- 209091 string characters out of 5837643
+ 13091 strings out of 477989
+ 209088 string characters out of 5837643
  2024340 words of memory out of 5000000
- 32938 multiletter control sequences out of 15000+600000
+ 32937 multiletter control sequences out of 15000+600000
  572189 words of font info for 75 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  75i,15n,76p,1455b,587s stack positions out of 10000i,1000n,20000p,200000b,200000s
 {c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}<c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmbx10.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmbx12.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr10.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr12.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr17.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr7.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmr8.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmri10.pfb><c:/Users/seek1477/AppData/Roaming/TinyTeX/texmf-dist/fonts/type1/public/lm/lmri8.pfb>
-Output written on Wen_2004-2022_prep.pdf (22 pages, 333668 bytes).
+Output written on Wen_2004-2022_prep.pdf (22 pages, 333379 bytes).
 PDF statistics:
- 334 PDF objects out of 1000 (max. 8388607)
- 279 compressed objects within 3 object streams
+ 335 PDF objects out of 1000 (max. 8388607)
+ 280 compressed objects within 3 object streams
  82 named destinations out of 1000 (max. 500000)
  146 words of extra memory for PDF output out of 10000 (max. 10000000)
 

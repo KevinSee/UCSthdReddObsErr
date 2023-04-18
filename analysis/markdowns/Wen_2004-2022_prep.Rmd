@@ -24,6 +24,16 @@ output:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
+    bookdown::word_document2:
+      fig_caption: yes
+      fig_height: 4
+      fig_width: 6
+      toc: yes
+      reference_docx: "../templates/ReportTemplate.docx" # Insert path for the DOCX file
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks.lua
+      - --lua-filter=../templates/pagebreak.lua
     bookdown::pdf_document2:
       fig_caption: yes
       fig_height: 5
@@ -36,16 +46,6 @@ output:
       - --lua-filter=../templates/author-info-blocks2.lua
       - --lua-filter=../templates/pagebreak.lua
       extra_dependencies: ["flafter"]
-    bookdown::word_document2:
-      fig_caption: yes
-      fig_height: 4
-      fig_width: 6
-      toc: yes
-      reference_docx: "../templates/ReportTemplate.docx" # Insert path for the DOCX file
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks.lua
-      - --lua-filter=../templates/pagebreak.lua
 bibliography:
 - packages.bib
 - references.bib
@@ -374,7 +374,7 @@ method_df %>%
 
 ## Redd Surveys
 
-Redd surveys were divided into three different types of reaches: index reaches, non-index reaches, and no-error reaches (Table @\ref(tab:method-tab)). For index reaches, we compiled the necessary covariates to run the one-observer redd net error model described in @Murdoch2018. Any reach designated to use redd data that contained no data for a particular year was assumed to have zero redds for that year. 
+Redd surveys were divided into three different types of reaches: index reaches, non-index reaches, and no-error reaches (Table  \@ref(tab:rch-type-tab)). For index reaches, we compiled the necessary covariates to run the one-observer redd net error model described in @Murdoch2018. Any reach designated to use redd data that contained no data for a particular year was assumed to have zero redds for that year. 
 
 ```{r rch-type-tab}
 all_rch %>%
@@ -1891,7 +1891,7 @@ spwn_org_strm_est %>%
 
 Table \@ref(tab:init-spwn-tab) shows the initial estimates, by origin, of spawners in the Wenatchee population for spawn years 2004-2013. This only includes areas surveyed for redds or that had PIT tag escapement estimates (some tributaries in 2011-2013). Some of those areas had the redd surveys replaced by PIT tag escapement estimates in later years. 
 
-```{r init-spwn-tab}
+```{r init-spwn-tab, fig.pos = "H"}
 spwn_org_est %>%
   mutate(across(year,
                 as.factor)) %>%
@@ -1908,7 +1908,7 @@ spwn_org_est %>%
                    1, 1),
         format.args = list(big.mark = ","),
         caption = "Initial estimates of total spawners in the Wenatchee basin, based on redd surveys and PIT tag estimates for certain tributaries.") %>%
-  kable_styling()
+  kable_styling(latex_options = c("HOLD_position"))
 ```
 
 
@@ -1933,7 +1933,7 @@ expn_df %>%
   kable(booktabs = T,
         linesep = "",
         digits = 3,
-        caption = "Mean proportion of total spawners within the Wenatchee basin estimated to have moved into Chiwaukum, Chumstick and Mission creeks, by origin, with standard error. Proportion in 2011 is only for Mission Creek.") %>%
+        caption = "Mean proportion of total spawners within the Wenatchee basin estimated to have moved into Chiwaukum, Chumstick and Mission creeks, by origin, with standard error. Year column corresponds to spawn years those expansions were used. Proportion in 2011 is only for Mission Creek.") %>%
   kable_styling(latex_options = c("HOLD_position"))
 ```
 
