@@ -11,6 +11,18 @@ institute:
 date: "`r format(Sys.time(), '%B %d, %Y')`"
 always_allow_html: true
 output: 
+    bookdown::pdf_document2:
+      fig_caption: yes
+      fig_height: 5
+      fig_width: 6
+      toc: yes
+      includes:
+        in_header: ../templates/header_wdfw.tex
+      pandoc_args:
+      - --lua-filter=../templates/scholarly-metadata.lua
+      - --lua-filter=../templates/author-info-blocks2.lua
+      - --lua-filter=../templates/pagebreak.lua
+      extra_dependencies: ["flafter"]
     wdfwTemplates::wdfw_html_format2:
       fig_caption: yes
       fig_height: 6
@@ -34,18 +46,6 @@ output:
       - --lua-filter=../templates/scholarly-metadata.lua
       - --lua-filter=../templates/author-info-blocks.lua
       - --lua-filter=../templates/pagebreak.lua
-    bookdown::pdf_document2:
-      fig_caption: yes
-      fig_height: 5
-      fig_width: 6
-      toc: yes
-      includes:
-        in_header: ../templates/header_wdfw.tex
-      pandoc_args:
-      - --lua-filter=../templates/scholarly-metadata.lua
-      - --lua-filter=../templates/author-info-blocks2.lua
-      - --lua-filter=../templates/pagebreak.lua
-      extra_dependencies: ["flafter"]
 bibliography:
 - packages.bib
 - references.bib
